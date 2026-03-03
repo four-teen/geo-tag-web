@@ -20,6 +20,16 @@ export default function Home() {
       Cookies.set("accessToken", normalizedToken);
       Cookies.set("id", res.data?.data?.id);
       Cookies.set("username", res.data?.data?.username || res.data?.data?.name);
+      const avatarUrl =
+        res.data?.data?.avatar_url ||
+        res.data?.data?.profile_image ||
+        res.data?.data?.profile_photo_url ||
+        "";
+      if (avatarUrl) {
+        Cookies.set("avatar_url", avatarUrl);
+      } else {
+        Cookies.remove("avatar_url");
+      }
       Cookies.set("designation", res.data?.data?.designation || "");
       Cookies.set("role", res.data?.data?.role || "staff");
       Cookies.set("is_active", String(res.data?.data?.is_active ? 1 : 0));

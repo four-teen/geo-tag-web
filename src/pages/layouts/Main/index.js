@@ -1,4 +1,5 @@
-import { DashboardOutlined, EnvironmentOutlined, LogoutOutlined } from "@ant-design/icons";
+import React, { useEffect, useMemo, useState } from "react";
+import { DashboardOutlined, EnvironmentOutlined, LogoutOutlined, UserOutlined } from "@ant-design/icons";
 import { Layout } from "antd";
 import NavBar from "../../components/NavBar/NavBar";
 import SideBar from "../../components/SideBar/SideBar";
@@ -29,6 +30,11 @@ const baseMenu = [
     requiredPermissions: [GEO_PERMISSIONS.MANAGE_GEO],
   },
   {
+    label: "Account",
+    key: "/account",
+    icon: <UserOutlined />,
+  },
+  {
     label: "Logout",
     key: "/logout",
     icon: <LogoutOutlined />,
@@ -36,12 +42,23 @@ const baseMenu = [
 ];
 
 const Main = ({ children }) => {
-  const menuItems = filterMenuByAccess(baseMenu);
+  const [hydrated, setHydrated] = useState(false);
+
+  useEffect(() => {
+    setHydrated(true);
+  }, []);
+
+  const menuItems = useMemo(() => {
+    if (!hydrated) return [];
+    return filterMenuByAccess(baseMenu);
+  }, [hydrated]);
+
+  const navTitle = hydrated && isAdministrator() ? "Administrator" : "Staff";
   const menu = <TopicMenu menu={menuItems} />;
 
   return (
     <div className="App">
-      <NavBar menu={menu} title={isAdministrator() ? "Administrator" : "Staff"} />
+      <NavBar menu={menu} title={navTitle} />
       <Layout>
         <SideBar menu={menu} />
         <Layout.Content className="content p-2">{children}</Layout.Content>

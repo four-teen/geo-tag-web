@@ -14,8 +14,7 @@
 
 import axios from "axios";
 import Cookies from "js-cookie";
-
-const API_BASE = process.env.NEXT_PUBLIC_API_URL;
+import { buildApiUrl } from "../../../utils/api";
 
 function authHeaders() {
   const token = Cookies.get("accessToken");
@@ -27,28 +26,28 @@ function authHeaders() {
 
 export async function GetBarangays() {
   // GET /bow/barangay
-  return axios.get(`${API_BASE}/bow/barangay`, {
+  return axios.get(buildApiUrl("/bow/barangay"), {
     headers: authHeaders(),
   });
 }
 
 export async function postBarangay(body) {
   // POST /bow/barangay
-  return axios.post(`${API_BASE}/bow/barangay`, body, {
+  return axios.post(buildApiUrl("/bow/barangay"), body, {
     headers: authHeaders(),
   });
 }
 
 export async function updateBarangay(id, body) {
   // PUT /bow/barangay/{id}
-  return axios.put(`${API_BASE}/bow/barangay/${id}`, body, {
+  return axios.put(buildApiUrl(`/bow/barangay/${id}`), body, {
     headers: authHeaders(),
   });
 }
 
 export async function deleteBarangay(id) {
   // DELETE /bow/barangay/{id}
-  return axios.delete(`${API_BASE}/bow/barangay/${id}`, {
+  return axios.delete(buildApiUrl(`/bow/barangay/${id}`), {
     headers: authHeaders(),
   });
 }

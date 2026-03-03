@@ -1,7 +1,6 @@
 import axios from "axios";
 import Cookies from "js-cookie";
-
-const API_BASE = process.env.NEXT_PUBLIC_API_URL;
+import { buildApiUrl } from "../../../utils/api";
 
 function authHeaders() {
   const token = Cookies.get("accessToken");
@@ -12,25 +11,25 @@ function authHeaders() {
 }
 
 export async function GetPrecinctsByPurok(purokId) {
-  return axios.get(`${API_BASE}/bow/precinct/by-purok/${purokId}`, {
+  return axios.get(buildApiUrl(`/bow/precinct/by-purok/${purokId}`), {
     headers: authHeaders(),
   });
 }
 
 export async function postPrecinct(body) {
-  return axios.post(`${API_BASE}/bow/precinct`, body, {
+  return axios.post(buildApiUrl("/bow/precinct"), body, {
     headers: authHeaders(),
   });
 }
 
 export async function updatePrecinct(id, body) {
-  return axios.put(`${API_BASE}/bow/precinct/${id}`, body, {
+  return axios.put(buildApiUrl(`/bow/precinct/${id}`), body, {
     headers: authHeaders(),
   });
 }
 
 export async function deletePrecinct(id) {
-  return axios.delete(`${API_BASE}/bow/precinct/${id}`, {
+  return axios.delete(buildApiUrl(`/bow/precinct/${id}`), {
     headers: authHeaders(),
   });
 }

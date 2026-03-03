@@ -9,6 +9,7 @@ const SESSION_COOKIE_KEYS = [
   "accessToken",
   "id",
   "username",
+  "avatar_url",
   "designation",
   "role",
   "is_active",
@@ -92,6 +93,7 @@ export function filterMenuByAccess(menuItems = []) {
 export function clearSessionCookies() {
   const apiUrl = Cookies.get("tokenApiUrl") || process.env.NEXT_PUBLIC_API_URL;
   const token = Cookies.get("accessToken");
+  const userId = Cookies.get("id") || "guest";
 
   if (typeof window !== "undefined" && typeof fetch === "function" && apiUrl && token) {
     fetch(`${apiUrl}/admin/logout`, {
@@ -102,6 +104,11 @@ export function clearSessionCookies() {
       },
       keepalive: true,
     }).catch(() => {});
+  }
+
+  if (typeof window !== "undefined") {
+    window.localStorage.removeItem(`geoAvatar:${userId}`);
+    window.dispatchEvent(new Event("geo-avatar-updated"));
   }
 
   SESSION_COOKIE_KEYS.forEach((key) => Cookies.remove(key));

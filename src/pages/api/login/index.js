@@ -1,5 +1,6 @@
 import axios from "axios";
 import Cookies from "js-cookie";
+import { buildApiUrl } from "../../../utils/api";
 
 export async function login(body) {
     const data = {
@@ -8,7 +9,7 @@ export async function login(body) {
     };
   
     const response =  await axios
-      .post(`${process.env.NEXT_PUBLIC_API_URL}/admin/login`, data, {
+      .post(buildApiUrl("/admin/login"), data, {
         headers: {
           "Content-Type": "application/json",
         },
@@ -22,7 +23,7 @@ export async function login(body) {
 export async function logout() {
   const token = Cookies.get("accessToken");
   return axios.post(
-    `${process.env.NEXT_PUBLIC_API_URL}/admin/logout`,
+    buildApiUrl("/admin/logout"),
     {},
     {
       headers: {

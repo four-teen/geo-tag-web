@@ -14,8 +14,7 @@
 
 import axios from "axios";
 import Cookies from "js-cookie";
-
-const API_BASE = process.env.NEXT_PUBLIC_API_URL;
+import { buildApiUrl } from "../../../utils/api";
 
 function authHeaders() {
   const token = Cookies.get("accessToken");
@@ -36,7 +35,7 @@ function authHeaders() {
  */
 export async function GetPuroksByBarangay(barangay_id) {
   return axios.get(
-    `${API_BASE}/bow/purok/by-barangay/${barangay_id}`,
+    buildApiUrl(`/bow/purok/by-barangay/${barangay_id}`),
     {
       headers: authHeaders(),
     }
@@ -46,21 +45,21 @@ export async function GetPuroksByBarangay(barangay_id) {
 
 export async function postPurok(body) {
   // POST /bow/purok
-  return axios.post(`${API_BASE}/bow/purok`, body, {
+  return axios.post(buildApiUrl("/bow/purok"), body, {
     headers: authHeaders(),
   });
 }
 
 export async function updatePurok(id, body) {
   // PUT /bow/purok/{id}
-  return axios.put(`${API_BASE}/bow/purok/${id}`, body, {
+  return axios.put(buildApiUrl(`/bow/purok/${id}`), body, {
     headers: authHeaders(),
   });
 }
 
 export async function deletePurok(id) {
   // DELETE /bow/purok/{id}
-  return axios.delete(`${API_BASE}/bow/purok/${id}`, {
+  return axios.delete(buildApiUrl(`/bow/purok/${id}`), {
     headers: authHeaders(),
   });
 }

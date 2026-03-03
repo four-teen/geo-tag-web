@@ -1,7 +1,8 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/router";
 import {
   Button,
+  Empty,
   Form,
   Input,
   Modal,
@@ -11,7 +12,7 @@ import {
   Table,
   Tag,
 } from "antd";
-import { DeleteOutlined, EditOutlined, EyeOutlined, PlusOutlined } from "@ant-design/icons";
+import { DeleteOutlined, EditOutlined, EyeOutlined, PlusOutlined, SearchOutlined } from "@ant-design/icons";
 import { ToastContainer, toast } from "react-toastify";
 import Cookies from "js-cookie";
 import Layout from "../layouts";
@@ -25,6 +26,7 @@ import {
   updatePrecinct,
 } from "../api/precinct";
 import { GEO_PERMISSIONS, hasAnyPermission } from "../../utils/access";
+import { extractApiErrorMessage } from "../../utils/api";
 
 export default function BarangayGeoPage() {
   const router = useRouter();
@@ -32,6 +34,7 @@ export default function BarangayGeoPage() {
 
   const [loading, setLoading] = useState(false);
   const [barangays, setBarangays] = useState([]);
+  const [barangaySearch, setBarangaySearch] = useState("");
   const [puroks, setPuroks] = useState([]);
   const [precincts, setPrecincts] = useState([]);
 
@@ -77,7 +80,7 @@ export default function BarangayGeoPage() {
       const rows = Array.isArray(res?.data?.data) ? res.data.data : [];
       setBarangays(rows);
     } catch (error) {
-      if (!handleUnauthorized(error)) toast.error("Failed to load barangays.");
+      if (!handleUnauthorized(error)) toast.error(extractApiErrorMessage(error, "Failed to load barangays."));
     } finally {
       setLoading(false);
     }
@@ -89,7 +92,7 @@ export default function BarangayGeoPage() {
       const rows = Array.isArray(res?.data?.data) ? res.data.data : [];
       setPuroks(rows);
     } catch (error) {
-      if (!handleUnauthorized(error)) toast.error("Failed to load puroks.");
+      if (!handleUnauthorized(error)) toast.error(extractApiErrorMessage(error, "Failed to load puroks."));
     }
   };
 
@@ -99,7 +102,7 @@ export default function BarangayGeoPage() {
       const rows = Array.isArray(res?.data?.data) ? res.data.data : [];
       setPrecincts(rows);
     } catch (error) {
-      if (!handleUnauthorized(error)) toast.error("Failed to load precincts.");
+      if (!handleUnauthorized(error)) toast.error(extractApiErrorMessage(error, "Failed to load precincts."));
     }
   };
 
@@ -128,7 +131,7 @@ export default function BarangayGeoPage() {
       barangayForm.resetFields();
       await loadBarangays();
     } catch (error) {
-      if (!handleUnauthorized(error)) toast.error("Saving barangay failed.");
+      if (!handleUnauthorized(error)) toast.error(extractApiErrorMessage(error, "Saving barangay failed."));
     } finally {
       setLoading(false);
     }
@@ -141,11 +144,42 @@ export default function BarangayGeoPage() {
       toast.success("Barangay deleted.");
       await loadBarangays();
     } catch (error) {
-      if (!handleUnauthorized(error)) toast.error("Deleting barangay failed.");
+      if (!handleUnauthorized(error)) toast.error(extractApiErrorMessage(error, "Deleting barangay failed."));
     } finally {
       setLoading(false);
     }
   };
+
+  const openPurokViewer = async (record) => {
+    setSelectedBarangay(record);
+    setPurokModalOpen(true);
+    await loadPuroks(record.barangay_id);
+  };
+
+  const openBarangayEditor = (record) => {
+    setEditingBarangay(record);
+    barangayForm.setFieldsValue({
+      barangay_name: record.barangay_name,
+      status: record.status || "ACTIVE",
+    });
+    setBarangayModalOpen(true);
+  };
+
+  const getPurokCount = (record) => {
+    const parsed = Number(record?.puroks_count ?? 0);
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
+  };
+
+  const filteredBarangays = useMemo(() => {
+    const keyword = barangaySearch.trim().toLowerCase();
+    if (!keyword) return barangays;
+
+    return barangays.filter((record) =>
+      String(record?.barangay_name || "")
+        .toLowerCase()
+        .includes(keyword)
+    );
+  }, [barangays, barangaySearch]);
 
   const submitPurok = async (values) => {
     if (!selectedBarangay?.barangay_id) return;
@@ -166,7 +200,7 @@ export default function BarangayGeoPage() {
       await loadPuroks(selectedBarangay.barangay_id);
       await loadBarangays();
     } catch (error) {
-      if (!handleUnauthorized(error)) toast.error("Saving purok failed.");
+      if (!handleUnauthorized(error)) toast.error(extractApiErrorMessage(error, "Saving purok failed."));
     } finally {
       setLoading(false);
     }
@@ -182,7 +216,7 @@ export default function BarangayGeoPage() {
         await loadBarangays();
       }
     } catch (error) {
-      if (!handleUnauthorized(error)) toast.error("Deleting purok failed.");
+      if (!handleUnauthorized(error)) toast.error(extractApiErrorMessage(error, "Deleting purok failed."));
     } finally {
       setLoading(false);
     }
@@ -206,7 +240,7 @@ export default function BarangayGeoPage() {
       precinctForm.resetFields();
       await loadPrecincts(selectedPurok.purok_id);
     } catch (error) {
-      if (!handleUnauthorized(error)) toast.error("Saving precinct failed.");
+      if (!handleUnauthorized(error)) toast.error(extractApiErrorMessage(error, "Saving precinct failed."));
     } finally {
       setLoading(false);
     }
@@ -221,7 +255,7 @@ export default function BarangayGeoPage() {
         await loadPrecincts(selectedPurok.purok_id);
       }
     } catch (error) {
-      if (!handleUnauthorized(error)) toast.error("Deleting precinct failed.");
+      if (!handleUnauthorized(error)) toast.error(extractApiErrorMessage(error, "Deleting precinct failed."));
     } finally {
       setLoading(false);
     }
@@ -243,25 +277,14 @@ export default function BarangayGeoPage() {
           <Space>
             <Button
               icon={<EyeOutlined />}
-              onClick={async () => {
-                setSelectedBarangay(record);
-                setPurokModalOpen(true);
-                await loadPuroks(record.barangay_id);
-              }}
+              onClick={() => openPurokViewer(record)}
             >
-              View Puroks
+              Add/View Purok ({getPurokCount(record)})
             </Button>
             <Button
               icon={<EditOutlined />}
               disabled={!canManageGeo}
-              onClick={() => {
-                setEditingBarangay(record);
-                barangayForm.setFieldsValue({
-                  barangay_name: record.barangay_name,
-                  status: record.status || "ACTIVE",
-                });
-                setBarangayModalOpen(true);
-              }}
+              onClick={() => openBarangayEditor(record)}
             >
               Edit
             </Button>
@@ -382,7 +405,7 @@ export default function BarangayGeoPage() {
         </div>
 
         <div className="bg-white p-6 rounded-lg shadow">
-          <div className="flex justify-between mb-4">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-4">
             <h2 className="text-lg font-semibold">Barangays</h2>
             <Button
               type="primary"
@@ -398,7 +421,66 @@ export default function BarangayGeoPage() {
               Add Barangay
             </Button>
           </div>
-          <Table rowKey="barangay_id" columns={barangayColumns} dataSource={barangays} loading={loading} />
+
+          <div className="mb-4">
+            <Input
+              allowClear
+              prefix={<SearchOutlined />}
+              placeholder="Search barangay"
+              value={barangaySearch}
+              onChange={(event) => setBarangaySearch(event.target.value)}
+            />
+          </div>
+
+          <div className="md:hidden space-y-3">
+            {!loading && filteredBarangays.length === 0 ? (
+              <div className="py-4">
+                <Empty description="No barangays found." />
+              </div>
+            ) : (
+              filteredBarangays.map((record) => (
+                <div key={record.barangay_id} className="border border-slate-200 rounded-lg p-4 space-y-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-base font-semibold text-slate-800">{record.barangay_name || "-"}</p>
+                    <Tag color={record.status === "ACTIVE" ? "green" : "red"}>{record.status || "INACTIVE"}</Tag>
+                  </div>
+
+                  <div className="flex flex-col gap-2">
+                    <Button block icon={<EyeOutlined />} onClick={() => openPurokViewer(record)}>
+                      Add/View Purok ({getPurokCount(record)})
+                    </Button>
+                    <Button
+                      block
+                      icon={<EditOutlined />}
+                      disabled={!canManageGeo}
+                      onClick={() => openBarangayEditor(record)}
+                    >
+                      Edit
+                    </Button>
+                    <Popconfirm
+                      title="Delete this barangay?"
+                      onConfirm={() => removeBarangay(record.barangay_id)}
+                      disabled={!canManageGeo}
+                    >
+                      <Button block icon={<DeleteOutlined />} danger disabled={!canManageGeo}>
+                        Delete
+                      </Button>
+                    </Popconfirm>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+
+          <div className="hidden md:block">
+            <Table
+              rowKey="barangay_id"
+              columns={barangayColumns}
+              dataSource={filteredBarangays}
+              loading={loading}
+              scroll={{ x: 720 }}
+            />
+          </div>
         </div>
       </main>
 
