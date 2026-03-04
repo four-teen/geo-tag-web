@@ -5,34 +5,44 @@ import NavBar from "../../components/NavBar/NavBar";
 import SideBar from "../../components/SideBar/SideBar";
 import TopicMenu from "../../components/TopicMenu";
 import Footer from "../../components/Footer";
-import { filterMenuByAccess, GEO_PERMISSIONS, isAdministrator } from "../../../utils/access";
+import { filterMenuByAccess, getRoleLabel, getUserRole, USER_ROLES } from "../../../utils/access";
 
 const baseMenu = [
   {
     label: "Administrator Dashboard",
     key: "/dashboard",
     icon: <DashboardOutlined />,
-    adminOnly: true,
-    requiredPermissions: [GEO_PERMISSIONS.MANAGE_GEO, GEO_PERMISSIONS.VIEW_GEO],
+    allowedRoles: [USER_ROLES.ADMIN],
   },
   {
     label: "Staff Dashboard",
     key: "/staff/dashboard",
     icon: <DashboardOutlined />,
-    staffOnly: true,
-    requiredPermissions: [GEO_PERMISSIONS.VIEW_GEO, GEO_PERMISSIONS.MANAGE_GEO],
+    allowedRoles: [USER_ROLES.STAFF],
+  },
+  {
+    label: "Municipal Staff Dashboard",
+    key: "/municipal/dashboard",
+    icon: <DashboardOutlined />,
+    allowedRoles: [USER_ROLES.MUNICIPAL_STAFF],
+  },
+  {
+    label: "Viewer Dashboard",
+    key: "/viewer/dashboard",
+    icon: <DashboardOutlined />,
+    allowedRoles: [USER_ROLES.VIEWER],
   },
   {
     label: "Barangay / Purok / Precinct",
     key: "/barangays",
     icon: <EnvironmentOutlined />,
-    adminOnly: true,
-    requiredPermissions: [GEO_PERMISSIONS.MANAGE_GEO],
+    allowedRoles: [USER_ROLES.ADMIN, USER_ROLES.STAFF, USER_ROLES.MUNICIPAL_STAFF, USER_ROLES.VIEWER],
   },
   {
-    label: "Account",
+    label: "Accounts",
     key: "/account",
     icon: <UserOutlined />,
+    allowedRoles: [USER_ROLES.ADMIN],
   },
   {
     label: "Logout",
@@ -53,7 +63,7 @@ const Main = ({ children }) => {
     return filterMenuByAccess(baseMenu);
   }, [hydrated]);
 
-  const navTitle = hydrated && isAdministrator() ? "Administrator" : "Staff";
+  const navTitle = hydrated ? getRoleLabel(getUserRole()) : "User";
   const menu = <TopicMenu menu={menuItems} />;
 
   return (

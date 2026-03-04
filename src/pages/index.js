@@ -35,7 +35,6 @@ export default function Home() {
       Cookies.set("is_active", String(res.data?.data?.is_active ? 1 : 0));
       Cookies.set("must_change_password", "0");
       Cookies.set("barangay_scope", res.data?.data?.barangay_scope || "ALL");
-      Cookies.set("permission_codes", JSON.stringify(res.data?.data?.permission_codes || []));
       Cookies.set("barangay_ids", JSON.stringify(res.data?.data?.barangay_ids || []));
       Cookies.set("tokenApiUrl", process.env.NEXT_PUBLIC_API_URL || "");
 
@@ -63,7 +62,7 @@ export default function Home() {
             </div>
 
             <h1 className="text-center text-xl font-semibold text-slate-800">Geo Tagging Login</h1>
-            <p className="text-center text-sm text-slate-500 mb-5">Administrator and staff access only</p>
+            <p className="text-center text-sm text-slate-500 mb-5">Administrator, staff, municipal staff, and viewer access</p>
 
             <Form layout="vertical" onFinish={onFinish} autoComplete="off">
               <Form.Item

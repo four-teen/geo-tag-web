@@ -1,15 +1,78 @@
 import Head from "next/head";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/router";
-import { Button, Card, message } from "antd";
-import { DeleteOutlined, UploadOutlined } from "@ant-design/icons";
+import {
+  Avatar,
+  Button,
+  Card,
+  Empty,
+  Form,
+  Input,
+  Modal,
+  Popconfirm,
+  Select,
+  Switch,
+  Tag,
+  Upload,
+  message,
+} from "antd";
+import { DeleteOutlined, EditOutlined, PlusOutlined, UploadOutlined, UserOutlined } from "@ant-design/icons";
 import Cookies from "js-cookie";
-import Image from "next/image";
 import Layout from "../layouts";
 import { Auth } from "../api/auth";
+import { createAccount, deleteAccount, getAccountOptions, getAccounts, updateAccount } from "../api/account";
+import { extractApiErrorMessage } from "../../utils/api";
+import { getDefaultLandingPath, isAdministrator } from "../../utils/access";
 
+const MAX_PHOTO_BYTES = 2 * 1024 * 1024;
 const AVATAR_UPDATED_EVENT = "geo-avatar-updated";
-const MAX_AVATAR_SIZE_BYTES = 2 * 1024 * 1024;
+
+const defaultRoleOptions = [
+  { value: "administrator", label: "Administrator" },
+  { value: "staff", label: "Staff" },
+  { value: "municipal_staff", label: "Municipal Staff" },
+  { value: "viewer", label: "Viewer" },
+];
+
+const scopeOptions = [
+  { value: "ALL", label: "All Barangays" },
+  { value: "SPECIFIC", label: "Specific Barangays" },
+];
+
+function formatDateTime(value) {
+  if (!value) return "-";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "-";
+
+  return date.toLocaleString("en-PH", {
+    year: "numeric",
+    month: "short",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+function initialFormValues() {
+  return {
+    name: "",
+    username: "",
+    designation: "",
+    password: "",
+    role: "staff",
+    is_active: true,
+    barangay_scope: "ALL",
+    barangay_ids: [],
+  };
+}
+
+function roleLabel(role = "") {
+  if (role === "administrator") return "Admin";
+  if (role === "staff") return "Staff";
+  if (role === "municipal_staff") return "Municipal Staff";
+  if (role === "viewer") return "Viewer";
+  return role || "Unknown";
+}
 
 function getAvatarStorageKey(userId) {
   return `geoAvatar:${userId || "guest"}`;
@@ -24,129 +87,491 @@ function readFileAsDataUrl(file) {
   });
 }
 
-export default function AccountPage() {
+export default function AccountManagementPage() {
   const router = useRouter();
-  const [userId, setUserId] = useState("guest");
-  const [username, setUsername] = useState("User");
-  const [designation, setDesignation] = useState("User");
-  const [avatarSrc, setAvatarSrc] = useState("");
-  const [saving, setSaving] = useState(false);
+  const [messageApi, contextHolder] = message.useMessage();
+  const [form] = Form.useForm();
 
-  const avatarStorageKey = useMemo(() => getAvatarStorageKey(userId), [userId]);
+  const [loading, setLoading] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [accounts, setAccounts] = useState([]);
+  const [roleOptions, setRoleOptions] = useState(defaultRoleOptions);
+  const [barangays, setBarangays] = useState([]);
+
+  const [modalOpen, setModalOpen] = useState(false);
+  const [editingAccount, setEditingAccount] = useState(null);
+
+  const [selectedPhoto, setSelectedPhoto] = useState(null);
+  const [photoPreview, setPhotoPreview] = useState("");
+  const [removePhoto, setRemovePhoto] = useState(false);
+  const [formRole, setFormRole] = useState("staff");
+  const [formScope, setFormScope] = useState("ALL");
+  const [currentUserId, setCurrentUserId] = useState(0);
+
+  const isCreateMode = !editingAccount;
+
+  const guardRoute = async () => {
+    const auth = await Auth(router?.pathname);
+    if (auth !== router?.pathname) {
+      router.push({ pathname: auth });
+      return false;
+    }
+    if (!isAdministrator()) {
+      router.push({ pathname: getDefaultLandingPath() });
+      return false;
+    }
+    return true;
+  };
+
+  const resetPhotoState = () => {
+    setSelectedPhoto(null);
+    setPhotoPreview("");
+    setRemovePhoto(false);
+  };
+
+  const loadOptions = async () => {
+    const res = await getAccountOptions();
+    setRoleOptions(Array.isArray(res?.data?.data?.roles) ? res.data.data.roles : defaultRoleOptions);
+    setBarangays(Array.isArray(res?.data?.data?.barangays) ? res.data.data.barangays : []);
+  };
+
+  const loadAccounts = async () => {
+    const res = await getAccounts();
+    setAccounts(Array.isArray(res?.data?.data) ? res.data.data : []);
+  };
 
   useEffect(() => {
-    const guard = async () => {
-      const auth = await Auth(router?.pathname);
-      if (auth !== router?.pathname) {
-        router.push({ pathname: auth });
-      }
-    };
-
-    guard();
-  }, [router]);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-
-    setUserId(Cookies.get("id") || "guest");
-    setUsername(Cookies.get("username") || "User");
-    setDesignation(Cookies.get("designation") || "User");
+    setCurrentUserId(Number(Cookies.get("id") || 0));
   }, []);
 
   useEffect(() => {
-    if (typeof window === "undefined") return;
+    const bootstrap = async () => {
+      const allowed = await guardRoute();
+      if (!allowed) return;
 
-    const stored = window.localStorage.getItem(avatarStorageKey);
-    setAvatarSrc(stored || Cookies.get("avatar_url") || "");
-  }, [avatarStorageKey]);
+      try {
+        setLoading(true);
+        await Promise.all([loadOptions(), loadAccounts()]);
+      } catch (error) {
+        messageApi.error(extractApiErrorMessage(error, "Failed to load accounts."));
+      } finally {
+        setLoading(false);
+      }
+    };
 
-  const onUploadAvatar = async (event) => {
-    const file = event.target.files?.[0];
-    event.target.value = "";
+    bootstrap();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-    if (!file) return;
-    if (!file.type.startsWith("image/")) {
-      message.error("Please select an image file.");
-      return;
+  const openCreateModal = () => {
+    setEditingAccount(null);
+    setFormRole("staff");
+    setFormScope("ALL");
+    form.setFieldsValue(initialFormValues());
+    resetPhotoState();
+    setModalOpen(true);
+  };
+
+  const openEditModal = (account) => {
+    setEditingAccount(account);
+    const role = account?.role || "staff";
+    const scope = account?.barangay_scope || "ALL";
+    setFormRole(role);
+    setFormScope(scope);
+
+    form.setFieldsValue({
+      name: account?.name || "",
+      username: account?.username || "",
+      designation: account?.designation || "",
+      password: "",
+      role,
+      is_active: !!account?.is_active,
+      barangay_scope: scope,
+      barangay_ids: Array.isArray(account?.barangays)
+        ? account.barangays.map((item) => item.barangay_id)
+        : [],
+    });
+
+    setSelectedPhoto(null);
+    setPhotoPreview(account?.avatar_url || "");
+    setRemovePhoto(false);
+    setModalOpen(true);
+  };
+
+  const onPhotoPick = async (file) => {
+    if (!file.type?.startsWith("image/")) {
+      messageApi.error("Please select an image file.");
+      return Upload.LIST_IGNORE;
     }
-    if (file.size > MAX_AVATAR_SIZE_BYTES) {
-      message.error("Image is too large. Maximum size is 2MB.");
-      return;
+    if (file.size > MAX_PHOTO_BYTES) {
+      messageApi.error("Image is too large. Maximum size is 2MB.");
+      return Upload.LIST_IGNORE;
+    }
+
+    setSelectedPhoto(file);
+    setRemovePhoto(false);
+    try {
+      const previewUrl = await readFileAsDataUrl(file);
+      setPhotoPreview(previewUrl);
+    } catch (error) {
+      messageApi.error("Failed to preview image.");
+      return Upload.LIST_IGNORE;
+    }
+    return false;
+  };
+
+  const removePickedPhoto = () => {
+    setSelectedPhoto(null);
+    setPhotoPreview("");
+    setRemovePhoto(true);
+  };
+
+  const formDataFromValues = (values) => {
+    const data = new FormData();
+    data.append("name", String(values.name || ""));
+    data.append("username", String(values.username || ""));
+    data.append("designation", String(values.designation || ""));
+    if (isCreateMode || String(values.password || "").trim() !== "") {
+      data.append("password", String(values.password || ""));
+    }
+    data.append("role", String(values.role || "staff"));
+    data.append("is_active", values.is_active ? "1" : "0");
+    data.append("barangay_scope", String(values.barangay_scope || "ALL"));
+
+    if (Array.isArray(values.barangay_ids)) {
+      values.barangay_ids.forEach((id) => data.append("barangay_ids[]", String(id)));
+    }
+
+    if (selectedPhoto) {
+      data.append("avatar", selectedPhoto);
+    }
+
+    if (removePhoto) {
+      data.append("remove_avatar", "1");
+    }
+
+    return data;
+  };
+
+  const onSubmit = async (values) => {
+    const payload = { ...values };
+
+    if (payload.role === "administrator") {
+      payload.barangay_scope = "ALL";
+      payload.barangay_ids = [];
+    }
+
+    if (payload.barangay_scope !== "SPECIFIC") {
+      payload.barangay_ids = [];
     }
 
     try {
-      setSaving(true);
-      const dataUrl = await readFileAsDataUrl(file);
-      setAvatarSrc(dataUrl);
-      window.localStorage.setItem(avatarStorageKey, dataUrl);
-      window.dispatchEvent(new Event(AVATAR_UPDATED_EVENT));
-      message.success("Profile image updated.");
+      setSubmitting(true);
+      const formData = formDataFromValues(payload);
+
+      if (editingAccount?.id) {
+        await updateAccount(editingAccount.id, formData);
+        messageApi.success("Account updated.");
+      } else {
+        await createAccount(formData);
+        messageApi.success("Account added.");
+      }
+
+      if (editingAccount?.id === currentUserId) {
+        const refreshed = await getAccounts();
+        const rows = Array.isArray(refreshed?.data?.data) ? refreshed.data.data : [];
+        const self = rows.find((item) => Number(item.id) === currentUserId);
+        const storageKey = getAvatarStorageKey(currentUserId);
+
+        if (self?.avatar_url) {
+          Cookies.set("avatar_url", self.avatar_url);
+          if (typeof window !== "undefined") {
+            window.localStorage.setItem(storageKey, self.avatar_url);
+          }
+        } else {
+          Cookies.remove("avatar_url");
+          if (typeof window !== "undefined") {
+            window.localStorage.removeItem(storageKey);
+          }
+        }
+
+        if (typeof window !== "undefined") {
+          window.dispatchEvent(new Event(AVATAR_UPDATED_EVENT));
+        }
+      }
+
+      setModalOpen(false);
+      setEditingAccount(null);
+      form.resetFields();
+      resetPhotoState();
+      await loadAccounts();
     } catch (error) {
-      message.error("Unable to read image file.");
+      messageApi.error(extractApiErrorMessage(error, "Saving account failed."));
     } finally {
-      setSaving(false);
+      setSubmitting(false);
     }
   };
 
-  const onRemoveAvatar = () => {
-    if (typeof window !== "undefined") {
-      window.localStorage.removeItem(avatarStorageKey);
-      window.dispatchEvent(new Event(AVATAR_UPDATED_EVENT));
+  const onDelete = async (id) => {
+    try {
+      setLoading(true);
+      await deleteAccount(id);
+      messageApi.success("Account deleted.");
+      await loadAccounts();
+    } catch (error) {
+      messageApi.error(extractApiErrorMessage(error, "Deleting account failed."));
+    } finally {
+      setLoading(false);
     }
-    Cookies.remove("avatar_url");
-    setAvatarSrc("");
-    message.success("Profile image removed.");
   };
+
+  const barangayOptionList = barangays.map((item) => ({
+    value: item.barangay_id,
+    label: item.barangay_name,
+  }));
 
   return (
     <Layout>
       <Head>
-        <title>Account</title>
+        <title>Accounts</title>
       </Head>
 
-      <main className="p-6">
-        <h1 className="text-2xl font-semibold text-slate-800">Account</h1>
-        <p className="text-slate-500 mt-1">Manage your display profile on the sidebar.</p>
+      {contextHolder}
 
-        <Card className="mt-6 max-w-xl">
-          <div className="flex flex-col sm:flex-row sm:items-center gap-5">
-            {avatarSrc ? (
-              <Image
-                src={avatarSrc}
-                alt={`${username} avatar`}
-                width={96}
-                height={96}
-                className="account-avatar"
-                unoptimized
-              />
-            ) : (
-              <div className="account-avatar account-avatar-fallback">{username.charAt(0).toUpperCase()}</div>
-            )}
+      <main className="p-4 sm:p-6 space-y-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h1 className="text-2xl font-semibold text-slate-800">Accounts</h1>
+            <p className="text-slate-500">Add, edit, delete, and manage user access details.</p>
+          </div>
+          <Button type="primary" icon={<PlusOutlined />} onClick={openCreateModal}>
+            Add Account
+          </Button>
+        </div>
 
-            <div className="flex-1">
-              <p className="text-lg font-semibold text-slate-800 capitalize">{username}</p>
-              <p className="text-slate-500 capitalize">{designation}</p>
+        {accounts.length === 0 && !loading ? (
+          <Card>
+            <Empty description="No account records found." />
+          </Card>
+        ) : (
+          <div className="space-y-3">
+            {accounts.map((account) => (
+              <Card key={account.id} loading={loading}>
+                <div className="flex flex-col gap-4">
+                  <div className="flex items-start gap-3">
+                    {account.avatar_url ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={account.avatar_url} alt={account.username || account.name} className="account-avatar" />
+                    ) : (
+                      <Avatar size={64} icon={<UserOutlined />} />
+                    )}
 
-              <div className="mt-4 flex flex-wrap gap-2">
-                <label className="ant-btn ant-btn-default cursor-pointer">
-                  <UploadOutlined /> Upload Photo
-                  <input
-                    type="file"
-                    accept="image/*"
-                    className="hidden"
-                    onChange={onUploadAvatar}
-                    disabled={saving}
-                  />
-                </label>
-                <Button icon={<DeleteOutlined />} onClick={onRemoveAvatar} disabled={saving || !avatarSrc}>
-                  Remove
+                    <div className="min-w-0">
+                      <p className="text-lg font-semibold text-slate-800 capitalize">{account.name || "-"}</p>
+                      <p className="text-slate-600">@{account.username || "-"}</p>
+                      <p className="text-sm text-slate-500">{account.designation || "No designation"}</p>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 text-sm">
+                    <div>
+                      <p className="text-slate-500">Role</p>
+                      <Tag
+                        color={
+                          account.role === "administrator"
+                            ? "blue"
+                            : account.role === "staff"
+                              ? "gold"
+                              : account.role === "municipal_staff"
+                                ? "purple"
+                                : "cyan"
+                        }
+                        className="mt-1"
+                      >
+                        {roleLabel(account.role)}
+                      </Tag>
+                    </div>
+                    <div>
+                      <p className="text-slate-500">Status</p>
+                      <Tag color={account.is_active ? "green" : "red"} className="mt-1">
+                        {account.is_active ? "ACTIVE" : "INACTIVE"}
+                      </Tag>
+                    </div>
+                    <div>
+                      <p className="text-slate-500">Must Change Password</p>
+                      <Tag color={account.must_change_password ? "orange" : "default"} className="mt-1">
+                        {account.must_change_password ? "YES" : "NO"}
+                      </Tag>
+                    </div>
+                    <div>
+                      <p className="text-slate-500">Scope</p>
+                      <Tag className="mt-1">{account.barangay_scope || "ALL"}</Tag>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
+                    <div>
+                      <p className="text-slate-500">Created At</p>
+                      <p className="text-slate-700">{formatDateTime(account.created_at)}</p>
+                    </div>
+                    <div>
+                      <p className="text-slate-500">Updated At</p>
+                      <p className="text-slate-700">{formatDateTime(account.updated_at)}</p>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col sm:flex-row gap-2">
+                    <Button icon={<EditOutlined />} onClick={() => openEditModal(account)}>
+                      Edit
+                    </Button>
+                    <Popconfirm
+                      title="Delete this account?"
+                      onConfirm={() => onDelete(account.id)}
+                      disabled={Number(account.id) === currentUserId}
+                    >
+                      <Button
+                        icon={<DeleteOutlined />}
+                        danger
+                        disabled={Number(account.id) === currentUserId}
+                      >
+                        Delete
+                      </Button>
+                    </Popconfirm>
+                  </div>
+                </div>
+              </Card>
+            ))}
+          </div>
+        )}
+      </main>
+
+      <Modal
+        title={isCreateMode ? "Add Account" : "Edit Account"}
+        open={modalOpen}
+        onCancel={() => {
+          setModalOpen(false);
+          setEditingAccount(null);
+          form.resetFields();
+          resetPhotoState();
+        }}
+        onOk={() => form.submit()}
+        okText={isCreateMode ? "Create" : "Save"}
+        confirmLoading={submitting}
+        width={760}
+      >
+        <Form
+          form={form}
+          layout="vertical"
+          initialValues={initialFormValues()}
+          onValuesChange={(changedValues, allValues) => {
+            if (Object.prototype.hasOwnProperty.call(changedValues, "role")) {
+              setFormRole(changedValues.role);
+              if (changedValues.role === "administrator") {
+                form.setFieldsValue({
+                  barangay_scope: "ALL",
+                  barangay_ids: [],
+                });
+                setFormScope("ALL");
+              }
+            }
+            if (Object.prototype.hasOwnProperty.call(changedValues, "barangay_scope")) {
+              setFormScope(changedValues.barangay_scope || "ALL");
+              if (changedValues.barangay_scope !== "SPECIFIC") {
+                form.setFieldsValue({ barangay_ids: [] });
+              }
+            }
+            if (!Object.prototype.hasOwnProperty.call(changedValues, "role")) {
+              setFormRole(allValues.role || "staff");
+            }
+          }}
+          onFinish={onSubmit}
+        >
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <Form.Item
+              label="Full Name"
+              name="name"
+              rules={[{ required: true, message: "Name is required." }]}
+            >
+              <Input placeholder="Enter name" />
+            </Form.Item>
+
+            <Form.Item
+              label="Username"
+              name="username"
+              rules={[{ required: true, message: "Username is required." }]}
+            >
+              <Input placeholder="Enter username" />
+            </Form.Item>
+
+            <Form.Item label="Designation" name="designation">
+              <Input placeholder="Optional designation" />
+            </Form.Item>
+
+            <Form.Item
+              label={isCreateMode ? "Password" : "Password (leave blank to keep current)"}
+              name="password"
+              rules={[
+                { required: isCreateMode, message: "Password is required for new accounts." },
+                { min: 6, message: "Password must be at least 6 characters." },
+              ]}
+            >
+              <Input.Password placeholder={isCreateMode ? "Enter password" : "Optional new password"} />
+            </Form.Item>
+
+            <Form.Item
+              label="Role"
+              name="role"
+              rules={[{ required: true, message: "Role is required." }]}
+            >
+              <Select options={roleOptions} />
+            </Form.Item>
+
+            <Form.Item label="Barangay Scope" name="barangay_scope">
+              <Select options={scopeOptions} disabled={formRole === "administrator"} />
+            </Form.Item>
+          </div>
+
+          <Form.Item label="Active Account" name="is_active" valuePropName="checked">
+            <Switch />
+          </Form.Item>
+
+          {formRole !== "administrator" && formScope === "SPECIFIC" ? (
+            <Form.Item
+              label="Assigned Barangays"
+              name="barangay_ids"
+              rules={[{ required: true, message: "Select at least one barangay." }]}
+            >
+              <Select mode="multiple" options={barangayOptionList} placeholder="Select barangays" />
+            </Form.Item>
+          ) : null}
+
+          <Form.Item label="User Photo">
+            <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+              {photoPreview ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={photoPreview} alt="User photo preview" className="account-avatar" />
+              ) : (
+                <Avatar size={64} icon={<UserOutlined />} />
+              )}
+
+              <div className="flex flex-col sm:flex-row gap-2">
+                <Upload
+                  accept="image/*"
+                  maxCount={1}
+                  showUploadList={false}
+                  beforeUpload={onPhotoPick}
+                >
+                  <Button icon={<UploadOutlined />}>Upload Photo</Button>
+                </Upload>
+                <Button onClick={removePickedPhoto} disabled={!photoPreview && !selectedPhoto}>
+                  Remove Photo
                 </Button>
               </div>
-              <p className="mt-3 text-xs text-slate-400">Allowed: image files only, max size 2MB.</p>
             </div>
-          </div>
-        </Card>
-      </main>
+            <p className="text-xs text-slate-400 mt-2">Allowed: image files only, max size 2MB.</p>
+          </Form.Item>
+        </Form>
+      </Modal>
     </Layout>
   );
 }

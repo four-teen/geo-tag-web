@@ -5,6 +5,13 @@ export const GEO_PERMISSIONS = {
   VIEW_GEO: "bow.view_geo",
 };
 
+export const USER_ROLES = {
+  ADMIN: "administrator",
+  STAFF: "staff",
+  MUNICIPAL_STAFF: "municipal_staff",
+  VIEWER: "viewer",
+};
+
 const SESSION_COOKIE_KEYS = [
   "accessToken",
   "id",
@@ -15,76 +22,99 @@ const SESSION_COOKIE_KEYS = [
   "is_active",
   "must_change_password",
   "barangay_scope",
-  "permission_codes",
   "barangay_ids",
   "tokenApiUrl",
 ];
 
-const ROUTE_PERMISSIONS = {
-  "/dashboard": [GEO_PERMISSIONS.MANAGE_GEO, GEO_PERMISSIONS.VIEW_GEO],
-  "/barangays": [GEO_PERMISSIONS.MANAGE_GEO, GEO_PERMISSIONS.VIEW_GEO],
-  "/staff/dashboard": [GEO_PERMISSIONS.VIEW_GEO, GEO_PERMISSIONS.MANAGE_GEO],
+const ROUTE_ROLE_ACCESS = {
+  "/dashboard": [USER_ROLES.ADMIN],
+  "/staff/dashboard": [USER_ROLES.STAFF],
+  "/municipal/dashboard": [USER_ROLES.MUNICIPAL_STAFF],
+  "/viewer/dashboard": [USER_ROLES.VIEWER],
+  "/barangays": [USER_ROLES.ADMIN, USER_ROLES.STAFF, USER_ROLES.MUNICIPAL_STAFF, USER_ROLES.VIEWER],
+  "/account": [USER_ROLES.ADMIN],
 };
 
-function parseArrayCookie(value) {
-  if (!value) return [];
-
-  try {
-    const parsed = JSON.parse(value);
-    return Array.isArray(parsed) ? parsed : [];
-  } catch (error) {
-    return String(value)
-      .split(",")
-      .map((entry) => entry.trim())
-      .filter(Boolean);
-  }
-}
-
-export function getPermissionCodes() {
-  return parseArrayCookie(Cookies.get("permission_codes"));
-}
-
 export function getUserRole() {
-  return Cookies.get("role") || "staff";
+  return Cookies.get("role") || USER_ROLES.STAFF;
+}
+
+export function getRoleLabel(role = "") {
+  const normalized = String(role || "").trim();
+
+  if (normalized === USER_ROLES.ADMIN) return "Administrator";
+  if (normalized === USER_ROLES.STAFF) return "Staff";
+  if (normalized === USER_ROLES.MUNICIPAL_STAFF) return "Municipal Staff";
+  if (normalized === USER_ROLES.VIEWER) return "Viewer";
+  return "User";
 }
 
 export function isAdministrator() {
-  return getUserRole() === "administrator";
+  return getUserRole() === USER_ROLES.ADMIN;
 }
 
 export function isStaff() {
-  return getUserRole() === "staff";
+  return getUserRole() === USER_ROLES.STAFF;
+}
+
+export function isMunicipalStaff() {
+  return getUserRole() === USER_ROLES.MUNICIPAL_STAFF;
+}
+
+export function isViewer() {
+  return getUserRole() === USER_ROLES.VIEWER;
+}
+
+function canManageGeoByRole(role) {
+  return [USER_ROLES.ADMIN, USER_ROLES.STAFF].includes(role);
+}
+
+function canViewGeoByRole(role) {
+  return [USER_ROLES.ADMIN, USER_ROLES.STAFF, USER_ROLES.MUNICIPAL_STAFF, USER_ROLES.VIEWER].includes(role);
 }
 
 export function hasAnyPermission(codes = []) {
-  if (isAdministrator()) return true;
-  const owned = getPermissionCodes();
-  return codes.some((code) => owned.includes(code));
+  const role = getUserRole();
+  return codes.some((code) => {
+    if (code === GEO_PERMISSIONS.MANAGE_GEO) return canManageGeoByRole(role);
+    if (code === GEO_PERMISSIONS.VIEW_GEO) return canViewGeoByRole(role);
+    return false;
+  });
 }
 
 export function getDefaultLandingPath() {
-  return isAdministrator() ? "/dashboard" : "/staff/dashboard";
+  const role = getUserRole();
+
+  if (role === USER_ROLES.ADMIN) return "/dashboard";
+  if (role === USER_ROLES.STAFF) return "/staff/dashboard";
+  if (role === USER_ROLES.MUNICIPAL_STAFF) return "/municipal/dashboard";
+  if (role === USER_ROLES.VIEWER) return "/viewer/dashboard";
+  return "/staff/dashboard";
 }
 
 export function canAccessRoute(pathname = "") {
   if (!pathname || pathname === "/") return true;
 
   const baseRoute = pathname.split("?")[0];
-  const required = ROUTE_PERMISSIONS[baseRoute];
+  const allowedRoles = ROUTE_ROLE_ACCESS[baseRoute];
 
-  if (!required || required.length === 0) return true;
+  if (!Array.isArray(allowedRoles) || allowedRoles.length === 0) return true;
 
-  return hasAnyPermission(required);
+  return allowedRoles.includes(getUserRole());
 }
 
 export function filterMenuByAccess(menuItems = []) {
-  return menuItems.filter((item) => {
-    if (item?.adminOnly && !isAdministrator()) return false;
-    if (item?.staffOnly && !isStaff()) return false;
+  const role = getUserRole();
 
-    if (Array.isArray(item?.requiredPermissions) && item.requiredPermissions.length > 0) {
-      return hasAnyPermission(item.requiredPermissions);
+  return menuItems.filter((item) => {
+    if (Array.isArray(item?.allowedRoles) && item.allowedRoles.length > 0) {
+      return item.allowedRoles.includes(role);
     }
+
+    if (item?.adminOnly && role !== USER_ROLES.ADMIN) return false;
+    if (item?.staffOnly && role !== USER_ROLES.STAFF) return false;
+    if (item?.municipalOnly && role !== USER_ROLES.MUNICIPAL_STAFF) return false;
+    if (item?.viewerOnly && role !== USER_ROLES.VIEWER) return false;
 
     return true;
   });
