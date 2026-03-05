@@ -1,5 +1,5 @@
 import Head from "next/head";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/router";
 import {
   Avatar,
@@ -16,7 +16,7 @@ import {
   Upload,
   message,
 } from "antd";
-import { DeleteOutlined, EditOutlined, PlusOutlined, UploadOutlined, UserOutlined } from "@ant-design/icons";
+import { DeleteOutlined, EditOutlined, PlusOutlined, SearchOutlined, UploadOutlined, UserOutlined } from "@ant-design/icons";
 import Cookies from "js-cookie";
 import Layout from "../layouts";
 import { Auth } from "../api/auth";
@@ -26,6 +26,7 @@ import { getDefaultLandingPath, isAdministrator } from "../../utils/access";
 
 const MAX_PHOTO_BYTES = 2 * 1024 * 1024;
 const AVATAR_UPDATED_EVENT = "geo-avatar-updated";
+const ACCOUNT_PAGE_CHUNK = 12;
 
 const defaultRoleOptions = [
   { value: "administrator", label: "Administrator" },
@@ -61,6 +62,7 @@ function initialFormValues() {
     password: "",
     role: "staff",
     is_active: true,
+    can_delete: false,
     barangay_scope: "ALL",
     barangay_ids: [],
   };
@@ -97,6 +99,8 @@ export default function AccountManagementPage() {
   const [accounts, setAccounts] = useState([]);
   const [roleOptions, setRoleOptions] = useState(defaultRoleOptions);
   const [barangays, setBarangays] = useState([]);
+  const [accountSearch, setAccountSearch] = useState("");
+  const [visibleCount, setVisibleCount] = useState(ACCOUNT_PAGE_CHUNK);
 
   const [modalOpen, setModalOpen] = useState(false);
   const [editingAccount, setEditingAccount] = useState(null);
@@ -107,8 +111,35 @@ export default function AccountManagementPage() {
   const [formRole, setFormRole] = useState("staff");
   const [formScope, setFormScope] = useState("ALL");
   const [currentUserId, setCurrentUserId] = useState(0);
+  const sentinelRef = useRef(null);
 
   const isCreateMode = !editingAccount;
+
+  const filteredAccounts = useMemo(() => {
+    const keyword = String(accountSearch || "").trim().toLowerCase();
+    if (!keyword) return accounts;
+
+    return accounts.filter((account) => {
+      const haystack = [
+        account?.name,
+        account?.username,
+        account?.designation,
+        account?.role,
+        account?.barangay_scope,
+        account?.is_active ? "active" : "inactive",
+        account?.can_delete ? "delete enabled" : "delete disabled",
+      ]
+        .map((item) => String(item || "").toLowerCase())
+        .join(" ");
+
+      return haystack.includes(keyword);
+    });
+  }, [accounts, accountSearch]);
+
+  const visibleAccounts = useMemo(
+    () => filteredAccounts.slice(0, visibleCount),
+    [filteredAccounts, visibleCount]
+  );
 
   const guardRoute = async () => {
     const auth = await Auth(router?.pathname);
@@ -163,6 +194,26 @@ export default function AccountManagementPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  useEffect(() => {
+    setVisibleCount(ACCOUNT_PAGE_CHUNK);
+  }, [accountSearch, accounts.length]);
+
+  useEffect(() => {
+    const node = sentinelRef.current;
+    if (!node || loading || visibleCount >= filteredAccounts.length) return undefined;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (!entries[0]?.isIntersecting) return;
+        setVisibleCount((prev) => Math.min(prev + ACCOUNT_PAGE_CHUNK, filteredAccounts.length));
+      },
+      { rootMargin: "240px 0px", threshold: 0.01 }
+    );
+
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [loading, visibleCount, filteredAccounts.length]);
+
   const openCreateModal = () => {
     setEditingAccount(null);
     setFormRole("staff");
@@ -186,6 +237,7 @@ export default function AccountManagementPage() {
       password: "",
       role,
       is_active: !!account?.is_active,
+      can_delete: role === "administrator" ? true : !!account?.can_delete,
       barangay_scope: scope,
       barangay_ids: Array.isArray(account?.barangays)
         ? account.barangays.map((item) => item.barangay_id)
@@ -236,7 +288,12 @@ export default function AccountManagementPage() {
     }
     data.append("role", String(values.role || "staff"));
     data.append("is_active", values.is_active ? "1" : "0");
+    data.append("can_delete", values.role === "administrator" ? "1" : values.can_delete ? "1" : "0");
     data.append("barangay_scope", String(values.barangay_scope || "ALL"));
+    if (values.role !== "administrator") {
+      data.append("permission_codes[]", "bow.manage_geo");
+      data.append("permission_codes[]", "bow.view_geo");
+    }
 
     if (Array.isArray(values.barangay_ids)) {
       values.barangay_ids.forEach((id) => data.append("barangay_ids[]", String(id)));
@@ -259,6 +316,7 @@ export default function AccountManagementPage() {
     if (payload.role === "administrator") {
       payload.barangay_scope = "ALL";
       payload.barangay_ids = [];
+      payload.can_delete = true;
     }
 
     if (payload.barangay_scope !== "SPECIFIC") {
@@ -294,6 +352,7 @@ export default function AccountManagementPage() {
             window.localStorage.removeItem(storageKey);
           }
         }
+        Cookies.set("can_delete", String(self?.can_delete ? 1 : 0));
 
         if (typeof window !== "undefined") {
           window.dispatchEvent(new Event(AVATAR_UPDATED_EVENT));
@@ -349,13 +408,23 @@ export default function AccountManagementPage() {
           </Button>
         </div>
 
-        {accounts.length === 0 && !loading ? (
+        <div className="max-w-md">
+          <Input
+            allowClear
+            prefix={<SearchOutlined />}
+            placeholder="Search account"
+            value={accountSearch}
+            onChange={(event) => setAccountSearch(event.target.value)}
+          />
+        </div>
+
+        {filteredAccounts.length === 0 && !loading ? (
           <Card>
             <Empty description="No account records found." />
           </Card>
         ) : (
           <div className="space-y-3">
-            {accounts.map((account) => (
+            {visibleAccounts.map((account) => (
               <Card key={account.id} loading={loading}>
                 <div className="flex flex-col gap-4">
                   <div className="flex items-start gap-3">
@@ -373,7 +442,7 @@ export default function AccountManagementPage() {
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 text-sm">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2 text-sm">
                     <div>
                       <p className="text-slate-500">Role</p>
                       <Tag
@@ -406,6 +475,12 @@ export default function AccountManagementPage() {
                     <div>
                       <p className="text-slate-500">Scope</p>
                       <Tag className="mt-1">{account.barangay_scope || "ALL"}</Tag>
+                    </div>
+                    <div>
+                      <p className="text-slate-500">Delete Access</p>
+                      <Tag color={account.role === "administrator" || account.can_delete ? "green" : "red"} className="mt-1">
+                        {account.role === "administrator" || account.can_delete ? "ENABLED" : "DISABLED"}
+                      </Tag>
                     </div>
                   </div>
 
@@ -441,6 +516,13 @@ export default function AccountManagementPage() {
                 </div>
               </Card>
             ))}
+            <div ref={sentinelRef} className="h-2" />
+            {!loading && visibleCount < filteredAccounts.length ? (
+              <p className="text-center text-xs text-slate-400">Scroll to load more accounts...</p>
+            ) : null}
+            {!loading && filteredAccounts.length > 0 && visibleCount >= filteredAccounts.length ? (
+              <p className="text-center text-xs text-slate-400">All account records loaded.</p>
+            ) : null}
           </div>
         )}
       </main>
@@ -470,6 +552,7 @@ export default function AccountManagementPage() {
                 form.setFieldsValue({
                   barangay_scope: "ALL",
                   barangay_ids: [],
+                  can_delete: true,
                 });
                 setFormScope("ALL");
               }
@@ -533,6 +616,9 @@ export default function AccountManagementPage() {
 
           <Form.Item label="Active Account" name="is_active" valuePropName="checked">
             <Switch />
+          </Form.Item>
+          <Form.Item label="Allow Delete Actions" name="can_delete" valuePropName="checked">
+            <Switch disabled={formRole === "administrator"} />
           </Form.Item>
 
           {formRole !== "administrator" && formScope === "SPECIFIC" ? (

@@ -50,8 +50,12 @@
 }
 
 .sidebar {
+  position: sticky !important;
+  top: 82px;
+  align-self: flex-start;
   height: calc(100vh - 82px);
   border-right: 1px solid #e5e7eb;
+  overflow: hidden;
 }
 
 .sidebar-inner {
@@ -73,6 +77,15 @@
   border-top: 1px solid #e5e7eb;
   padding: 0.9rem 1rem;
   background: #ffffff;
+}
+
+@media (max-width: 991.98px) {
+  .sidebar {
+    position: static !important;
+    top: auto;
+    height: auto;
+    overflow: visible;
+  }
 }
 
 .sidebar-profile-avatar {

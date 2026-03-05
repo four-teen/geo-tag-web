@@ -33,6 +33,7 @@ export default function Home() {
       Cookies.set("designation", res.data?.data?.designation || "");
       Cookies.set("role", res.data?.data?.role || "staff");
       Cookies.set("is_active", String(res.data?.data?.is_active ? 1 : 0));
+      Cookies.set("can_delete", String(res.data?.data?.can_delete ? 1 : 0));
       Cookies.set("must_change_password", "0");
       Cookies.set("barangay_scope", res.data?.data?.barangay_scope || "ALL");
       Cookies.set("barangay_ids", JSON.stringify(res.data?.data?.barangay_ids || []));

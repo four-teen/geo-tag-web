@@ -1,5 +1,11 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { DashboardOutlined, EnvironmentOutlined, LogoutOutlined, UserOutlined } from "@ant-design/icons";
+import {
+  DashboardOutlined,
+  EnvironmentOutlined,
+  LogoutOutlined,
+  TeamOutlined,
+  UserOutlined,
+} from "@ant-design/icons";
 import { Layout } from "antd";
 import NavBar from "../../components/NavBar/NavBar";
 import SideBar from "../../components/SideBar/SideBar";
@@ -36,6 +42,12 @@ const baseMenu = [
     label: "Barangay / Purok / Precinct",
     key: "/barangays",
     icon: <EnvironmentOutlined />,
+    allowedRoles: [USER_ROLES.ADMIN, USER_ROLES.STAFF, USER_ROLES.MUNICIPAL_STAFF, USER_ROLES.VIEWER],
+  },
+  {
+    label: "Voters",
+    key: "/voters",
+    icon: <TeamOutlined />,
     allowedRoles: [USER_ROLES.ADMIN, USER_ROLES.STAFF, USER_ROLES.MUNICIPAL_STAFF, USER_ROLES.VIEWER],
   },
   {

@@ -20,6 +20,7 @@ const SESSION_COOKIE_KEYS = [
   "designation",
   "role",
   "is_active",
+  "can_delete",
   "must_change_password",
   "barangay_scope",
   "barangay_ids",
@@ -32,6 +33,8 @@ const ROUTE_ROLE_ACCESS = {
   "/municipal/dashboard": [USER_ROLES.MUNICIPAL_STAFF],
   "/viewer/dashboard": [USER_ROLES.VIEWER],
   "/barangays": [USER_ROLES.ADMIN, USER_ROLES.STAFF, USER_ROLES.MUNICIPAL_STAFF, USER_ROLES.VIEWER],
+  "/voters": [USER_ROLES.ADMIN, USER_ROLES.STAFF, USER_ROLES.MUNICIPAL_STAFF, USER_ROLES.VIEWER],
+  "/recipients": [USER_ROLES.ADMIN, USER_ROLES.STAFF, USER_ROLES.MUNICIPAL_STAFF, USER_ROLES.VIEWER],
   "/account": [USER_ROLES.ADMIN],
 };
 
@@ -71,6 +74,13 @@ function canManageGeoByRole(role) {
 
 function canViewGeoByRole(role) {
   return [USER_ROLES.ADMIN, USER_ROLES.STAFF, USER_ROLES.MUNICIPAL_STAFF, USER_ROLES.VIEWER].includes(role);
+}
+
+export function canDeleteActions() {
+  if (isAdministrator()) return true;
+
+  const raw = String(Cookies.get("can_delete") || "").trim().toLowerCase();
+  return raw === "1" || raw === "true" || raw === "yes";
 }
 
 export function hasAnyPermission(codes = []) {

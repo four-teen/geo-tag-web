@@ -25,12 +25,13 @@ import {
   postPrecinct,
   updatePrecinct,
 } from "../api/precinct";
-import { GEO_PERMISSIONS, hasAnyPermission } from "../../utils/access";
+import { canDeleteActions, GEO_PERMISSIONS, hasAnyPermission } from "../../utils/access";
 import { extractApiErrorMessage } from "../../utils/api";
 
 export default function BarangayGeoPage() {
   const router = useRouter();
   const canManageGeo = hasAnyPermission([GEO_PERMISSIONS.MANAGE_GEO]);
+  const canDeleteGeo = canManageGeo && canDeleteActions();
 
   const [loading, setLoading] = useState(false);
   const [barangays, setBarangays] = useState([]);
@@ -291,9 +292,9 @@ export default function BarangayGeoPage() {
             <Popconfirm
               title="Delete this barangay?"
               onConfirm={() => removeBarangay(record.barangay_id)}
-              disabled={!canManageGeo}
+              disabled={!canDeleteGeo}
             >
-              <Button icon={<DeleteOutlined />} danger disabled={!canManageGeo}>
+              <Button icon={<DeleteOutlined />} danger disabled={!canDeleteGeo}>
                 Delete
               </Button>
             </Popconfirm>
@@ -343,9 +344,9 @@ export default function BarangayGeoPage() {
             <Popconfirm
               title="Delete this purok?"
               onConfirm={() => removePurok(record.purok_id)}
-              disabled={!canManageGeo}
+              disabled={!canDeleteGeo}
             >
-              <Button icon={<DeleteOutlined />} danger disabled={!canManageGeo}>
+              <Button icon={<DeleteOutlined />} danger disabled={!canDeleteGeo}>
                 Delete
               </Button>
             </Popconfirm>
@@ -385,9 +386,9 @@ export default function BarangayGeoPage() {
             <Popconfirm
               title="Delete this precinct?"
               onConfirm={() => removePrecinct(record.precinct_id)}
-              disabled={!canManageGeo}
+              disabled={!canDeleteGeo}
             >
-              <Button icon={<DeleteOutlined />} danger disabled={!canManageGeo}>
+              <Button icon={<DeleteOutlined />} danger disabled={!canDeleteGeo}>
                 Delete
               </Button>
             </Popconfirm>
@@ -460,9 +461,9 @@ export default function BarangayGeoPage() {
                     <Popconfirm
                       title="Delete this barangay?"
                       onConfirm={() => removeBarangay(record.barangay_id)}
-                      disabled={!canManageGeo}
+                      disabled={!canDeleteGeo}
                     >
-                      <Button block icon={<DeleteOutlined />} danger disabled={!canManageGeo}>
+                      <Button block icon={<DeleteOutlined />} danger disabled={!canDeleteGeo}>
                         Delete
                       </Button>
                     </Popconfirm>
