@@ -45,55 +45,83 @@ const NavBar = ({ menu, title = "Geo Tagging" }) => {
   }, [userId]);
 
   return (
-    <nav className="navbar flex">
-      <Button
-        className="menu"
-        type=""
-        icon={<MenuOutlined />}
-        onClick={() => setVisible(true)}
-      />
-      <Drawer
-        title="Topics"
-        placement="left"
-        onClick={() => setVisible(false)}
-        onClose={() => setVisible(false)}
-        visible={visible}
-        width={280}
-        bodyStyle={{ padding: 0 }}
-      >
-        <div className="mobile-drawer-content">
-          <div className="mobile-drawer-menu">{menu}</div>
+    <nav className="navbar">
+      <div className="navbar-brand">
+        <Button
+          className="menu"
+          type=""
+          icon={<MenuOutlined />}
+          onClick={() => setVisible(true)}
+        />
+        <Drawer
+          title="Topics"
+          placement="left"
+          onClick={() => setVisible(false)}
+          onClose={() => setVisible(false)}
+          visible={visible}
+          width={280}
+          bodyStyle={{ padding: 0 }}
+        >
+          <div className="mobile-drawer-content">
+            <div className="mobile-drawer-menu">{menu}</div>
 
-          <div className="mobile-drawer-profile">
-            {avatarSrc ? (
-              <Image
-                src={avatarSrc}
-                alt={`${username} avatar`}
-                width={44}
-                height={44}
-                className="sidebar-profile-avatar"
-                unoptimized
-              />
-            ) : (
-              <div className="sidebar-profile-avatar sidebar-profile-avatar-fallback">
-                {username.charAt(0).toUpperCase() || <UserOutlined />}
+            <div className="mobile-drawer-profile">
+              {avatarSrc ? (
+                <Image
+                  src={avatarSrc}
+                  alt={`${username} avatar`}
+                  width={44}
+                  height={44}
+                  className="sidebar-profile-avatar"
+                  unoptimized
+                />
+              ) : (
+                <div className="sidebar-profile-avatar sidebar-profile-avatar-fallback">
+                  {username.charAt(0).toUpperCase() || <UserOutlined />}
+                </div>
+              )}
+
+              <div className="sidebar-profile-text">
+                <p className="sidebar-profile-name">{username}</p>
+                <p className="sidebar-profile-role">{designation}</p>
               </div>
-            )}
-
-            <div className="sidebar-profile-text">
-              <p className="sidebar-profile-name">{username}</p>
-              <p className="sidebar-profile-role">{designation}</p>
             </div>
           </div>
+        </Drawer>
+        <Link href={{ pathname: "/" }}>
+          <Image
+            src="/logo.jpg"
+            width={80}
+            height={80}
+            className="logo rounded-full"
+            alt="logo"
+          />
+        </Link>
+
+        <h1 className="text-center ml-4 mt-2 text-lg text-blue-700 hidden lg:block">{title}</h1>
+      </div>
+
+      <div className="navbar-user">
+        {avatarSrc ? (
+          <Image
+            src={avatarSrc}
+            alt={`${username} avatar`}
+            width={44}
+            height={44}
+            className="sidebar-profile-avatar"
+            unoptimized
+          />
+        ) : (
+          <div className="sidebar-profile-avatar sidebar-profile-avatar-fallback">
+            {username.charAt(0).toUpperCase() || <UserOutlined />}
+          </div>
+        )}
+
+        <div className="navbar-user-text">
+          <p className="navbar-user-name">{username}</p>
+          <p className="navbar-user-role">{designation}</p>
         </div>
-      </Drawer>
-      <Link href={{ pathname: '/' }}>
-        <Image src={'/logo.jpg'} width={80}
-          height={80} className="logo rounded-full" alt="logo" />
-
-      </Link>
-
-      <h1 className="text-center ml-4 mt-2 text-lg text-blue-700 hidden lg:block">{title}</h1>
+      </div>
     </nav>
   );
 };

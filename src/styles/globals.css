@@ -55,10 +55,13 @@
   align-self: flex-start;
   height: calc(100vh - 82px);
   border-right: 1px solid #e5e7eb;
+  background: rgba(255, 255, 255, 0.86) !important;
+  backdrop-filter: blur(14px);
   overflow: hidden;
 }
 
 .sidebar-inner {
+  position: relative;
   height: 100%;
   display: flex;
   flex-direction: column;
@@ -67,16 +70,22 @@
 .sidebar-menu {
   flex: 1;
   overflow-y: auto;
-  padding-top: 0.5rem;
+  padding: 0.5rem 0 5.5rem;
 }
 
-.sidebar-profile {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  border-top: 1px solid #e5e7eb;
-  padding: 0.9rem 1rem;
-  background: #ffffff;
+.sidebar-fade {
+  pointer-events: none;
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 110px;
+  background: linear-gradient(
+    180deg,
+    rgba(250, 250, 250, 0) 0%,
+    rgba(250, 250, 250, 0.75) 55%,
+    rgba(250, 250, 250, 1) 100%
+  );
 }
 
 @media (max-width: 991.98px) {
@@ -84,7 +93,13 @@
     position: static !important;
     top: auto;
     height: auto;
+    background: #ffffff !important;
+    backdrop-filter: none;
     overflow: visible;
+  }
+
+  .sidebar-fade {
+    display: none;
   }
 }
 
@@ -131,15 +146,58 @@ font-size: 100px;
 
 
 .navbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
   background-color: white;
-  padding-left: 2rem;
-  padding-top: 1rem;
-  padding-bottom: 1rem;
+  padding: 1rem 2rem;
+}
+
+.navbar-brand {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+
+.navbar-user {
+  display: none;
+  align-items: center;
+  gap: 0.85rem;
+  padding: 0.5rem 0.95rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 9999px;
+  background: linear-gradient(135deg, rgba(248, 250, 252, 0.98), rgba(241, 245, 249, 0.92));
+  box-shadow: 0 14px 32px rgba(15, 23, 42, 0.08);
+}
+
+.navbar-user-text {
+  min-width: 0;
+  text-align: right;
+}
+
+.navbar-user-name {
+  color: #0f172a;
+  font-size: 0.95rem;
+  font-weight: 600;
+  line-height: 1.2;
+  text-transform: capitalize;
+}
+
+.navbar-user-role {
+  color: #64748b;
+  font-size: 0.78rem;
+  line-height: 1.2;
+  text-transform: capitalize;
 }
 
 @media (min-width: 992px) {
   .menu {
     display: none;
+  }
+
+  .navbar-user {
+    display: flex;
   }
 }
 
@@ -186,6 +244,16 @@ font-size: 100px;
   border-top: 1px solid #e5e7eb;
   padding: 0.9rem 1rem;
   background: #ffffff;
+}
+
+@media (max-width: 575.98px) {
+  .navbar {
+    padding: 0.9rem 1rem;
+  }
+
+  .logo {
+    margin-left: 0.75rem;
+  }
 }
 
 :root {

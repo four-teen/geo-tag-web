@@ -40,6 +40,28 @@ const PAGE_SIZE = 20;
 const MAX_PHOTO_BYTES = 2 * 1024 * 1024;
 const NONE_OPTION_VALUE = "__NONE__";
 
+const toFilterLocationId = (value) => {
+  if (value === NONE_OPTION_VALUE) return 0;
+  if (value === undefined || value === null || value === "") return undefined;
+  const normalized = Number(value);
+  return Number.isFinite(normalized) ? normalized : undefined;
+};
+
+const hasLocationLabel = (value) => {
+  const normalized = String(value ?? "").trim();
+  return normalized !== "" && !/^-?\d+$/.test(normalized);
+};
+
+const toAssignedLocationId = (...values) => {
+  for (const value of values) {
+    const normalized = toFilterLocationId(value);
+    if (normalized === undefined) continue;
+    return normalized > 0 ? normalized : undefined;
+  }
+
+  return undefined;
+};
+
 const normalize = (v) => String(v || "").trim().toLowerCase();
 const isActive = (v) => ["active", "verified", "pending"].includes(normalize(v));
 const statusLabel = (v) => (isActive(v) ? "ACTIVE" : "ENACTIVE");
@@ -88,6 +110,7 @@ const sortToApi = (opt) => {
 export default function VotersPage() {
   const router = useRouter();
   const [form] = Form.useForm();
+  const formBarangayId = Form.useWatch("barangay_id", form);
   const canManageGeo = hasAnyPermission([GEO_PERMISSIONS.MANAGE_GEO]);
   const canDeleteGeo = canManageGeo && canDeleteActions();
 
@@ -130,23 +153,49 @@ export default function VotersPage() {
     }
   }, [router, router.pathname]);
 
-  const selectedBarangayName = useMemo(() => {
-    if (barangayId === NONE_OPTION_VALUE) return "None";
-    return barangays.find((b) => Number(b.barangay_id) === Number(barangayId))?.barangay_name || "";
-  }, [barangays, barangayId]);
-  const selectedPurokName = useMemo(() => {
-    if (purokId === NONE_OPTION_VALUE) return "None";
-    return filterPuroks.find((p) => Number(p.purok_id) === Number(purokId))?.purok_name || "";
-  }, [filterPuroks, purokId]);
+  const selectedBarangayFilterId = useMemo(() => toFilterLocationId(barangayId), [barangayId]);
+  const selectedPurokFilterId = useMemo(() => toFilterLocationId(purokId), [purokId]);
   const sortApi = useMemo(() => sortToApi(sortOpt), [sortOpt]);
   const barangayOptions = useMemo(
-    () => [{ value: NONE_OPTION_VALUE, label: "None" }, ...barangays.map((x) => ({ value: x.barangay_id, label: x.barangay_name }))],
+    () => [{ value: NONE_OPTION_VALUE, label: "Un Assigned" }, ...barangays.map((x) => ({ value: x.barangay_id, label: x.barangay_name }))],
     [barangays],
   );
   const purokOptions = useMemo(
-    () => [{ value: NONE_OPTION_VALUE, label: "None" }, ...filterPuroks.map((x) => ({ value: x.purok_id, label: x.purok_name }))],
+    () => [{ value: NONE_OPTION_VALUE, label: "Un Assigned" }, ...filterPuroks.map((x) => ({ value: x.purok_id, label: x.purok_name }))],
     [filterPuroks],
   );
+  const formBarangayOptions = useMemo(
+    () => [{ value: NONE_OPTION_VALUE, label: "Un Assigned" }, ...barangays.map((x) => ({ value: x.barangay_id, label: x.barangay_name }))],
+    [barangays],
+  );
+  const formPurokOptions = useMemo(
+    () => [{ value: NONE_OPTION_VALUE, label: "Un Assigned" }, ...formPuroks.map((x) => ({ value: x.purok_id, label: x.purok_name }))],
+    [formPuroks],
+  );
+  const barangayNameById = useMemo(
+    () => new Map(barangays.map((x) => [Number(x.barangay_id), x.barangay_name])),
+    [barangays],
+  );
+
+  const getBarangayLabel = useCallback((record) => {
+    if (hasLocationLabel(record?.barangay_name)) return String(record.barangay_name).trim();
+    if (hasLocationLabel(record?.barangay)) return String(record.barangay).trim();
+
+    const id = toAssignedLocationId(record?.barangay_id, record?.barangay);
+    if (id) return barangayNameById.get(id) || `Barangay #${id}`;
+
+    return "Un Assigned";
+  }, [barangayNameById]);
+
+  const getPurokLabel = useCallback((record) => {
+    if (hasLocationLabel(record?.purok_name)) return String(record.purok_name).trim();
+    if (hasLocationLabel(record?.purok)) return String(record.purok).trim();
+
+    const id = toAssignedLocationId(record?.purok_id, record?.purok);
+    if (id) return `Purok #${id}`;
+
+    return "Un Assigned";
+  }, []);
 
   const unauthorized = useCallback((error) => {
     if (error?.response?.status === 401) {
@@ -162,6 +211,7 @@ export default function VotersPage() {
       const res = await GetBarangays();
       setBarangays(Array.isArray(res?.data?.data) ? res.data.data : []);
     } catch (e) {
+      setBarangays([]);
       if (!unauthorized(e)) toast.error(extractApiErrorMessage(e, "Failed to load barangays."));
     }
   }, [unauthorized]);
@@ -179,6 +229,11 @@ export default function VotersPage() {
       if (target === "form") setFormPuroks(rows);
       return rows;
     } catch (e) {
+      if (target === "filter") {
+        setFilterPuroks([]);
+        setFilterPrecincts([]);
+      }
+      if (target === "form") setFormPuroks([]);
       if (!unauthorized(e)) toast.error(extractApiErrorMessage(e, "Failed to load puroks."));
       return [];
     }
@@ -204,8 +259,8 @@ export default function VotersPage() {
   const fetchPage = useCallback(async (nextPage = 1, append = false) => {
     const q = JSON.stringify({
       s: debouncedSearch.trim(),
-      b: selectedBarangayName,
-      p: selectedPurokName,
+      b: selectedBarangayFilterId ?? null,
+      p: selectedPurokFilterId ?? null,
       n: precinctNo,
       by: sortApi.sort_by,
       dir: sortApi.sort_dir,
@@ -217,8 +272,8 @@ export default function VotersPage() {
         page: nextPage,
         per_page: PAGE_SIZE,
         search: debouncedSearch.trim() || undefined,
-        barangay: selectedBarangayName || undefined,
-        purok: selectedPurokName || undefined,
+        barangay_id: selectedBarangayFilterId,
+        purok_id: selectedPurokFilterId,
         precinct_no: precinctNo || undefined,
         sort_by: sortApi.sort_by,
         sort_dir: sortApi.sort_dir,
@@ -237,11 +292,18 @@ export default function VotersPage() {
       setPage(cp);
       setHasMore(cp < lp);
     } catch (e) {
+      if (!append && q === queryRef.current) {
+        setVoters([]);
+        setFilteredCount(0);
+        setTotalCount(0);
+        setPage(0);
+        setHasMore(false);
+      }
       if (!unauthorized(e)) toast.error(extractApiErrorMessage(e, "Failed to load voters."));
     } finally {
       append ? setLoadingMore(false) : setLoading(false);
     }
-  }, [debouncedSearch, precinctNo, selectedBarangayName, selectedPurokName, sortApi, unauthorized]);
+  }, [debouncedSearch, precinctNo, selectedBarangayFilterId, selectedPurokFilterId, sortApi, unauthorized]);
 
   useEffect(() => {
     const t = setTimeout(() => setDebouncedSearch(search), 350);
@@ -269,7 +331,7 @@ export default function VotersPage() {
     setPage(0);
     setHasMore(false);
     fetchPage(1, false);
-  }, [ready, debouncedSearch, selectedBarangayName, selectedPurokName, precinctNo, sortApi, fetchPage]);
+  }, [ready, debouncedSearch, selectedBarangayFilterId, selectedPurokFilterId, precinctNo, sortApi, fetchPage]);
 
   useEffect(() => {
     const node = sentinelRef.current;
@@ -297,13 +359,8 @@ export default function VotersPage() {
     resetModal();
     setEditing(r);
     setPhotoPreview(imageUrl(r));
-    const b = barangays.find((x) => normalize(x.barangay_name) === normalize(r.barangay));
-    const bId = b?.barangay_id;
-    let pId;
-    if (bId) {
-      const rows = await loadPuroks(bId, "form");
-      pId = rows.find((x) => normalize(x.purok_name) === normalize(r.purok))?.purok_id;
-    }
+    const bId = toAssignedLocationId(r?.barangay_id, r?.barangay);
+    const pId = toAssignedLocationId(r?.purok_id, r?.purok);
     form.setFieldsValue({
       precinct_no: r?.precinct_no || "",
       voters_id_number: r?.voters_id_number || "",
@@ -322,6 +379,11 @@ export default function VotersPage() {
       status: formStatus(r?.status),
     });
     setModalOpen(true);
+    if (bId) {
+      const rows = await loadPuroks(bId, "form");
+      const resolvedPurokId = rows.some((x) => Number(x.purok_id) === Number(pId)) ? pId : undefined;
+      form.setFieldValue("purok_id", resolvedPurokId);
+    }
   };
 
   const onPhotoPick = async (file) => {
@@ -341,13 +403,21 @@ export default function VotersPage() {
   const clearPhoto = () => { setSelectedPhoto(null); setPhotoPreview(""); setRemovePhoto(true); };
 
   const submit = async (vals) => {
+    const selectedBarangayId = toFilterLocationId(vals?.barangay_id);
+    const selectedPurokId = toFilterLocationId(vals?.purok_id);
     const fd = new FormData();
     ["precinct_no","voters_id_number","first_name","middle_name","last_name","extension","birthdate","occupation","marital_status","phone_number","religion","sex"].forEach((k) => {
       const v = vals?.[k];
       if (v !== undefined && v !== null && String(v).trim() !== "") fd.append(k, String(v).trim());
     });
-    fd.append("barangay_id", String(vals.barangay_id));
-    fd.append("purok_id", String(vals.purok_id));
+    if (selectedBarangayId === undefined) {
+      form.setFields([{ name: "barangay_id", errors: ["Barangay is required."] }]);
+      return;
+    }
+    fd.append("barangay_id", String(selectedBarangayId));
+    if (selectedPurokId !== undefined) {
+      fd.append("purok_id", String(selectedPurokId));
+    }
     fd.append("status", String(vals.status || "ACTIVE"));
     if (selectedPhoto) fd.append("profile_picture", selectedPhoto);
     if (removePhoto) fd.append("remove_profile_picture", "1");
@@ -409,7 +479,7 @@ export default function VotersPage() {
               value={barangayId}
               onChange={async (v) => {
                 setBarangayId(v);
-                setPurokId(v === NONE_OPTION_VALUE ? NONE_OPTION_VALUE : undefined);
+                setPurokId(undefined);
                 setPrecinctNo(undefined);
                 setFilterPrecincts([]);
                 if (!v || v === NONE_OPTION_VALUE) {
@@ -490,8 +560,8 @@ export default function VotersPage() {
                     </div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 text-sm uppercase">
                       <div><p className="text-slate-500">Precinct</p><p className="text-slate-800 font-medium">{toUpperText(r?.precinct_no) || "-"}</p></div>
-                      <div><p className="text-slate-500">Barangay</p><p className="text-slate-800 font-medium">{toUpperText(r?.barangay) || "-"}</p></div>
-                      <div><p className="text-slate-500">Purok</p><p className="text-slate-800 font-medium">{toUpperText(r?.purok) || "-"}</p></div>
+                      <div><p className="text-slate-500">Barangay</p><p className="text-slate-800 font-medium">{toUpperText(getBarangayLabel(r)) || "-"}</p></div>
+                      <div><p className="text-slate-500">Purok</p><p className="text-slate-800 font-medium">{toUpperText(getPurokLabel(r)) || "-"}</p></div>
                     </div>
                     {open ? (
                       <div className="border-t border-slate-200 pt-4">
@@ -540,10 +610,29 @@ export default function VotersPage() {
             <Form.Item label="Birthdate" name="birthdate"><Input type="date" /></Form.Item>
             <Form.Item label="Occupation" name="occupation"><Input maxLength={200} /></Form.Item>
             <Form.Item label="Barangay" name="barangay_id" rules={[{ required: true, message: "Barangay is required." }]}>
-              <Select showSearch options={barangays.map((x) => ({ value: x.barangay_id, label: x.barangay_name }))} optionFilterProp="label" onChange={async (v) => { form.setFieldValue("purok_id", undefined); await loadPuroks(v, "form"); }} />
+              <Select
+                allowClear
+                showSearch
+                options={formBarangayOptions}
+                optionFilterProp="label"
+                onChange={async (v) => {
+                  form.setFieldValue("purok_id", undefined);
+                  if (!v || v === NONE_OPTION_VALUE) {
+                    setFormPuroks([]);
+                    return;
+                  }
+                  await loadPuroks(v, "form");
+                }}
+              />
             </Form.Item>
-            <Form.Item label="Purok" name="purok_id" rules={[{ required: true, message: "Purok is required." }]}>
-              <Select showSearch options={formPuroks.map((x) => ({ value: x.purok_id, label: x.purok_name }))} optionFilterProp="label" />
+            <Form.Item label="Purok" name="purok_id">
+              <Select
+                allowClear
+                showSearch
+                disabled={!formBarangayId || formBarangayId === NONE_OPTION_VALUE}
+                options={formPurokOptions}
+                optionFilterProp="label"
+              />
             </Form.Item>
             <Form.Item label="Marital Status" name="marital_status"><Select allowClear options={[{ value: "SINGLE", label: "Single" }, { value: "MARRIED", label: "Married" }, { value: "WIDOWED", label: "Widowed" }, { value: "SEPARATED", label: "Separated" }]} /></Form.Item>
             <Form.Item label="Phone Number" name="phone_number"><Input maxLength={50} /></Form.Item>

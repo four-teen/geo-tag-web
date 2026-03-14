@@ -16,13 +16,13 @@ import {
   Upload,
   message,
 } from "antd";
-import { DeleteOutlined, EditOutlined, PlusOutlined, SearchOutlined, UploadOutlined, UserOutlined } from "@ant-design/icons";
+import { DeleteOutlined, EditOutlined, PlusOutlined, SearchOutlined, StopOutlined, UploadOutlined, UserOutlined } from "@ant-design/icons";
 import Cookies from "js-cookie";
 import Layout from "../layouts";
 import { Auth } from "../api/auth";
-import { createAccount, deleteAccount, getAccountOptions, getAccounts, updateAccount } from "../api/account";
+import { createAccount, deleteAccount, disableAccount, getAccountOptions, getAccounts, updateAccount } from "../api/account";
 import { extractApiErrorMessage } from "../../utils/api";
-import { getDefaultLandingPath, isAdministrator } from "../../utils/access";
+import { getDefaultLandingPath, isAdministrator, isStaff } from "../../utils/access";
 
 const MAX_PHOTO_BYTES = 2 * 1024 * 1024;
 const AVATAR_UPDATED_EVENT = "geo-avatar-updated";
@@ -80,6 +80,12 @@ function getAvatarStorageKey(userId) {
   return `geoAvatar:${userId || "guest"}`;
 }
 
+function getPermissionCodesForRole(role = "staff") {
+  if (role === "staff") return ["bow.manage_geo", "bow.view_geo"];
+  if (role === "municipal_staff" || role === "viewer") return ["bow.view_geo"];
+  return [];
+}
+
 function readFileAsDataUrl(file) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -89,10 +95,16 @@ function readFileAsDataUrl(file) {
   });
 }
 
-export default function AccountManagementPage() {
+export function AccountManagementPage({ mode = "administrator" }) {
   const router = useRouter();
   const [messageApi, contextHolder] = message.useMessage();
   const [form] = Form.useForm();
+  const isAdminMode = mode === "administrator";
+  const apiScope = isAdminMode ? "admin" : "staff";
+  const pageTitle = isAdminMode ? "Accounts" : "Staff Accounts";
+  const pageDescription = isAdminMode
+    ? "Add, edit, delete, and manage user access details."
+    : "Add, edit, and disable account access. Delete remains available only in the administrator module.";
 
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -147,7 +159,11 @@ export default function AccountManagementPage() {
       router.push({ pathname: auth });
       return false;
     }
-    if (!isAdministrator()) {
+    if (isAdminMode && !isAdministrator()) {
+      router.push({ pathname: getDefaultLandingPath() });
+      return false;
+    }
+    if (!isAdminMode && !isStaff()) {
       router.push({ pathname: getDefaultLandingPath() });
       return false;
     }
@@ -161,13 +177,16 @@ export default function AccountManagementPage() {
   };
 
   const loadOptions = async () => {
-    const res = await getAccountOptions();
-    setRoleOptions(Array.isArray(res?.data?.data?.roles) ? res.data.data.roles : defaultRoleOptions);
+    const res = await getAccountOptions(apiScope);
+    const fallbackRoles = isAdminMode
+      ? defaultRoleOptions
+      : defaultRoleOptions.filter((item) => item.value !== "administrator");
+    setRoleOptions(Array.isArray(res?.data?.data?.roles) ? res.data.data.roles : fallbackRoles);
     setBarangays(Array.isArray(res?.data?.data?.barangays) ? res.data.data.barangays : []);
   };
 
   const loadAccounts = async () => {
-    const res = await getAccounts();
+    const res = await getAccounts(apiScope);
     setAccounts(Array.isArray(res?.data?.data) ? res.data.data : []);
   };
 
@@ -192,7 +211,7 @@ export default function AccountManagementPage() {
 
     bootstrap();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [apiScope]);
 
   useEffect(() => {
     setVisibleCount(ACCOUNT_PAGE_CHUNK);
@@ -237,7 +256,7 @@ export default function AccountManagementPage() {
       password: "",
       role,
       is_active: !!account?.is_active,
-      can_delete: role === "administrator" ? true : !!account?.can_delete,
+      can_delete: isAdminMode && role === "administrator" ? true : isAdminMode ? !!account?.can_delete : false,
       barangay_scope: scope,
       barangay_ids: Array.isArray(account?.barangays)
         ? account.barangays.map((item) => item.barangay_id)
@@ -288,12 +307,12 @@ export default function AccountManagementPage() {
     }
     data.append("role", String(values.role || "staff"));
     data.append("is_active", values.is_active ? "1" : "0");
-    data.append("can_delete", values.role === "administrator" ? "1" : values.can_delete ? "1" : "0");
+    data.append(
+      "can_delete",
+      isAdminMode && values.role !== "administrator" && values.can_delete ? "1" : values.role === "administrator" ? "1" : "0"
+    );
     data.append("barangay_scope", String(values.barangay_scope || "ALL"));
-    if (values.role !== "administrator") {
-      data.append("permission_codes[]", "bow.manage_geo");
-      data.append("permission_codes[]", "bow.view_geo");
-    }
+    getPermissionCodesForRole(values.role).forEach((code) => data.append("permission_codes[]", code));
 
     if (Array.isArray(values.barangay_ids)) {
       values.barangay_ids.forEach((id) => data.append("barangay_ids[]", String(id)));
@@ -319,6 +338,10 @@ export default function AccountManagementPage() {
       payload.can_delete = true;
     }
 
+    if (!isAdminMode) {
+      payload.can_delete = false;
+    }
+
     if (payload.barangay_scope !== "SPECIFIC") {
       payload.barangay_ids = [];
     }
@@ -328,15 +351,15 @@ export default function AccountManagementPage() {
       const formData = formDataFromValues(payload);
 
       if (editingAccount?.id) {
-        await updateAccount(editingAccount.id, formData);
+        await updateAccount(editingAccount.id, formData, apiScope);
         messageApi.success("Account updated.");
       } else {
-        await createAccount(formData);
+        await createAccount(formData, apiScope);
         messageApi.success("Account added.");
       }
 
       if (editingAccount?.id === currentUserId) {
-        const refreshed = await getAccounts();
+        const refreshed = await getAccounts(apiScope);
         const rows = Array.isArray(refreshed?.data?.data) ? refreshed.data.data : [];
         const self = rows.find((item) => Number(item.id) === currentUserId);
         const storageKey = getAvatarStorageKey(currentUserId);
@@ -374,11 +397,24 @@ export default function AccountManagementPage() {
   const onDelete = async (id) => {
     try {
       setLoading(true);
-      await deleteAccount(id);
+      await deleteAccount(id, apiScope);
       messageApi.success("Account deleted.");
       await loadAccounts();
     } catch (error) {
       messageApi.error(extractApiErrorMessage(error, "Deleting account failed."));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const onDisable = async (id) => {
+    try {
+      setLoading(true);
+      await disableAccount(id, apiScope);
+      messageApi.success("Account disabled.");
+      await loadAccounts();
+    } catch (error) {
+      messageApi.error(extractApiErrorMessage(error, "Disabling account failed."));
     } finally {
       setLoading(false);
     }
@@ -392,7 +428,7 @@ export default function AccountManagementPage() {
   return (
     <Layout>
       <Head>
-        <title>Accounts</title>
+        <title>{pageTitle}</title>
       </Head>
 
       {contextHolder}
@@ -400,8 +436,8 @@ export default function AccountManagementPage() {
       <main className="p-4 sm:p-6 space-y-4">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h1 className="text-2xl font-semibold text-slate-800">Accounts</h1>
-            <p className="text-slate-500">Add, edit, delete, and manage user access details.</p>
+            <h1 className="text-2xl font-semibold text-slate-800">{pageTitle}</h1>
+            <p className="text-slate-500">{pageDescription}</p>
           </div>
           <Button type="primary" icon={<PlusOutlined />} onClick={openCreateModal}>
             Add Account
@@ -442,7 +478,7 @@ export default function AccountManagementPage() {
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2 text-sm">
+                  <div className={`grid grid-cols-1 gap-2 text-sm sm:grid-cols-2 ${isAdminMode ? "lg:grid-cols-5" : "lg:grid-cols-4"}`}>
                     <div>
                       <p className="text-slate-500">Role</p>
                       <Tag
@@ -476,12 +512,14 @@ export default function AccountManagementPage() {
                       <p className="text-slate-500">Scope</p>
                       <Tag className="mt-1">{account.barangay_scope || "ALL"}</Tag>
                     </div>
-                    <div>
-                      <p className="text-slate-500">Delete Access</p>
-                      <Tag color={account.role === "administrator" || account.can_delete ? "green" : "red"} className="mt-1">
-                        {account.role === "administrator" || account.can_delete ? "ENABLED" : "DISABLED"}
-                      </Tag>
-                    </div>
+                    {isAdminMode ? (
+                      <div>
+                        <p className="text-slate-500">Delete Access</p>
+                        <Tag color={account.role === "administrator" || account.can_delete ? "green" : "red"} className="mt-1">
+                          {account.role === "administrator" || account.can_delete ? "ENABLED" : "DISABLED"}
+                        </Tag>
+                      </div>
+                    ) : null}
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
@@ -499,19 +537,35 @@ export default function AccountManagementPage() {
                     <Button icon={<EditOutlined />} onClick={() => openEditModal(account)}>
                       Edit
                     </Button>
-                    <Popconfirm
-                      title="Delete this account?"
-                      onConfirm={() => onDelete(account.id)}
-                      disabled={Number(account.id) === currentUserId}
-                    >
-                      <Button
-                        icon={<DeleteOutlined />}
-                        danger
+                    {isAdminMode ? (
+                      <Popconfirm
+                        title="Delete this account?"
+                        onConfirm={() => onDelete(account.id)}
                         disabled={Number(account.id) === currentUserId}
                       >
-                        Delete
-                      </Button>
-                    </Popconfirm>
+                        <Button
+                          icon={<DeleteOutlined />}
+                          danger
+                          disabled={Number(account.id) === currentUserId}
+                        >
+                          Delete
+                        </Button>
+                      </Popconfirm>
+                    ) : (
+                      <Popconfirm
+                        title="Disable this account?"
+                        onConfirm={() => onDisable(account.id)}
+                        disabled={Number(account.id) === currentUserId || !account.is_active}
+                      >
+                        <Button
+                          icon={<StopOutlined />}
+                          danger
+                          disabled={Number(account.id) === currentUserId || !account.is_active}
+                        >
+                          {account.is_active ? "Disable" : "Disabled"}
+                        </Button>
+                      </Popconfirm>
+                    )}
                   </div>
                 </div>
               </Card>
@@ -548,13 +602,15 @@ export default function AccountManagementPage() {
           onValuesChange={(changedValues, allValues) => {
             if (Object.prototype.hasOwnProperty.call(changedValues, "role")) {
               setFormRole(changedValues.role);
-              if (changedValues.role === "administrator") {
+              if (isAdminMode && changedValues.role === "administrator") {
                 form.setFieldsValue({
                   barangay_scope: "ALL",
                   barangay_ids: [],
                   can_delete: true,
                 });
                 setFormScope("ALL");
+              } else if (!isAdminMode) {
+                form.setFieldsValue({ can_delete: false });
               }
             }
             if (Object.prototype.hasOwnProperty.call(changedValues, "barangay_scope")) {
@@ -615,11 +671,13 @@ export default function AccountManagementPage() {
           </div>
 
           <Form.Item label="Active Account" name="is_active" valuePropName="checked">
-            <Switch />
+            <Switch disabled={Number(editingAccount?.id || 0) === currentUserId} />
           </Form.Item>
-          <Form.Item label="Allow Delete Actions" name="can_delete" valuePropName="checked">
-            <Switch disabled={formRole === "administrator"} />
-          </Form.Item>
+          {isAdminMode ? (
+            <Form.Item label="Allow Delete Actions" name="can_delete" valuePropName="checked">
+              <Switch disabled={formRole === "administrator"} />
+            </Form.Item>
+          ) : null}
 
           {formRole !== "administrator" && formScope === "SPECIFIC" ? (
             <Form.Item
@@ -660,4 +718,8 @@ export default function AccountManagementPage() {
       </Modal>
     </Layout>
   );
+}
+
+export default function AdminAccountManagementRoute() {
+  return <AccountManagementPage mode="administrator" />;
 }

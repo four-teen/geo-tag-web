@@ -9,36 +9,46 @@ function authHeaders() {
   };
 }
 
-export async function getAccountOptions() {
-  return axios.get(buildApiUrl("/admin/accounts/options"), {
+function resolveAccountBase(scope = "admin") {
+  return scope === "staff" ? "/staff/accounts" : "/admin/accounts";
+}
+
+export async function getAccountOptions(scope = "admin") {
+  return axios.get(buildApiUrl(`${resolveAccountBase(scope)}/options`), {
     headers: authHeaders(),
   });
 }
 
-export async function getAccounts() {
-  return axios.get(buildApiUrl("/admin/accounts"), {
+export async function getAccounts(scope = "admin") {
+  return axios.get(buildApiUrl(resolveAccountBase(scope)), {
     headers: authHeaders(),
   });
 }
 
-export async function createAccount(formData) {
-  return axios.post(buildApiUrl("/admin/accounts"), formData, {
+export async function createAccount(formData, scope = "admin") {
+  return axios.post(buildApiUrl(resolveAccountBase(scope)), formData, {
     headers: authHeaders(),
   });
 }
 
-export async function updateAccount(id, formData) {
+export async function updateAccount(id, formData, scope = "admin") {
   if (typeof formData?.append === "function") {
     formData.append("_method", "PUT");
   }
 
-  return axios.post(buildApiUrl(`/admin/accounts/${id}`), formData, {
+  return axios.post(buildApiUrl(`${resolveAccountBase(scope)}/${id}`), formData, {
     headers: authHeaders(),
   });
 }
 
-export async function deleteAccount(id) {
-  return axios.delete(buildApiUrl(`/admin/accounts/${id}`), {
+export async function deleteAccount(id, scope = "admin") {
+  return axios.delete(buildApiUrl(`${resolveAccountBase(scope)}/${id}`), {
+    headers: authHeaders(),
+  });
+}
+
+export async function disableAccount(id, scope = "staff") {
+  return axios.patch(buildApiUrl(`${resolveAccountBase(scope)}/${id}/disable`), {}, {
     headers: authHeaders(),
   });
 }
