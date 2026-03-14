@@ -167,9 +167,6 @@ export default function AdminDashboard() {
               <div className="space-y-2">
                 <p className="text-sm uppercase tracking-[0.35em] text-white/65">Voter Intelligence</p>
                 <h1 className="text-3xl font-semibold sm:text-4xl">Administrator Dashboard</h1>
-                <p className="text-sm uppercase tracking-[0.22em] text-white/55">
-                  Masterlist Source: bow_tbl_recipients
-                </p>
               </div>
 
               <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
@@ -254,7 +251,7 @@ export default function AdminDashboard() {
                 <p className="text-sm uppercase tracking-[0.3em] text-slate-400">Profession Snapshot</p>
                 <h2 className="mt-1 text-2xl font-semibold text-slate-800">Top recorded occupations from the voter masterlist</h2>
                 <p className="mt-1 max-w-3xl text-sm text-slate-500">
-                  These cards highlight the strongest profession signals currently stored in <span className="font-medium text-slate-700">bow_tbl_recipients</span>.
+                  These cards highlight the strongest profession signals currently stored in the voter masterlist.
                 </p>
               </div>
 
