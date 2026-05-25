@@ -6,6 +6,8 @@ import {
   ApartmentOutlined,
   EnvironmentOutlined,
   IdcardOutlined,
+  ReadOutlined,
+  TagsOutlined,
   TeamOutlined,
 } from "@ant-design/icons";
 import { Card, Empty, Progress, Skeleton } from "antd";
@@ -74,6 +76,8 @@ export default function StaffDashboard() {
   const snapshot = insights?.snapshot || {};
   const topProfessions = Array.isArray(insights?.top_professions) ? insights.top_professions.slice(0, 4) : [];
   const topBarangays = Array.isArray(insights?.top_barangays) ? insights.top_barangays.slice(0, 6) : [];
+  const topReligions = Array.isArray(insights?.top_religions) ? insights.top_religions.slice(0, 6) : [];
+  const topTribes = Array.isArray(insights?.top_tribes) ? insights.top_tribes.slice(0, 6) : [];
   const chartData = useMemo(() => (
     insights?.evaluation_chart || { categories: [], series: [] }
   ), [insights]);
@@ -231,6 +235,86 @@ export default function StaffDashboard() {
                     />
                   ) : (
                     <Empty description="No evaluation chart data available." />
+                  )}
+                </div>
+              </Card>
+            </section>
+
+            <section className="grid grid-cols-1 gap-6 xl:grid-cols-2">
+              <Card className="rounded-[30px] border-0 shadow-sm">
+                <div className="space-y-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="text-sm uppercase tracking-[0.3em] text-slate-400">Religion Analytics</p>
+                      <h3 className="mt-1 text-xl font-semibold text-slate-800">Religion distribution</h3>
+                    </div>
+                    <div className="rounded-2xl bg-slate-100 p-3 text-lg text-slate-700"><ReadOutlined /></div>
+                  </div>
+
+                  {topReligions.length > 0 ? (
+                    <div className="space-y-4">
+                      {topReligions.map((item, index) => (
+                        <div key={item.label} className="space-y-2">
+                          <div className="flex items-center justify-between gap-3">
+                            <div>
+                              <p className="text-xs uppercase tracking-[0.22em] text-slate-400">Rank {index + 1}</p>
+                              <p className="mt-1 text-sm font-semibold text-slate-800">{item.label}</p>
+                            </div>
+                            <div className="text-right">
+                              <p className="text-sm font-semibold text-slate-800">{whole(item.total)}</p>
+                              <p className="text-xs text-slate-400">{pct(item.share)}</p>
+                            </div>
+                          </div>
+                          <Progress
+                            percent={Math.max(0, Math.min(100, Number(item.share || 0)))}
+                            showInfo={false}
+                            strokeColor="#2563eb"
+                            trailColor="#dbeafe"
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <Empty description="No religion analytics available." />
+                  )}
+                </div>
+              </Card>
+
+              <Card className="rounded-[30px] border-0 shadow-sm">
+                <div className="space-y-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="text-sm uppercase tracking-[0.3em] text-slate-400">Tribe Analytics</p>
+                      <h3 className="mt-1 text-xl font-semibold text-slate-800">Tribe distribution</h3>
+                    </div>
+                    <div className="rounded-2xl bg-slate-100 p-3 text-lg text-slate-700"><TagsOutlined /></div>
+                  </div>
+
+                  {topTribes.length > 0 ? (
+                    <div className="space-y-4">
+                      {topTribes.map((item, index) => (
+                        <div key={item.label} className="space-y-2">
+                          <div className="flex items-center justify-between gap-3">
+                            <div>
+                              <p className="text-xs uppercase tracking-[0.22em] text-slate-400">Rank {index + 1}</p>
+                              <p className="mt-1 text-sm font-semibold text-slate-800">{item.label}</p>
+                            </div>
+                            <div className="text-right">
+                              <p className="text-sm font-semibold text-slate-800">{whole(item.total)}</p>
+                              <p className="text-xs text-slate-400">{pct(item.share)}</p>
+                            </div>
+                          </div>
+                          <Progress
+                            percent={Math.max(0, Math.min(100, Number(item.share || 0)))}
+                            showInfo={false}
+                            strokeColor="#7c3aed"
+                            trailColor="#ede9fe"
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <Empty description="No tribe analytics available." />
                   )}
                 </div>
               </Card>
