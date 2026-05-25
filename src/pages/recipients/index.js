@@ -33,12 +33,15 @@ import { GetBarangays } from "../api/barangay";
 import { GetPuroksByBarangay } from "../api/purok";
 import { GetPrecinctsByPurok } from "../api/precinct";
 import { GetRecipients, postRecipient, updateRecipient, deleteRecipient } from "../api/recipients";
+import { GetReligions } from "../api/religion";
+import { GetTribes } from "../api/tribe";
 import { canDeleteActions, GEO_PERMISSIONS, hasAnyPermission } from "../../utils/access";
 import { extractApiErrorMessage, getApiBaseUrl } from "../../utils/api";
 
 const PAGE_SIZE = 20;
 const MAX_PHOTO_BYTES = 2 * 1024 * 1024;
 const NONE_OPTION_VALUE = "__NONE__";
+const BLANK_OPTION = { value: NONE_OPTION_VALUE, label: "Blank" };
 
 const toFilterLocationId = (value) => {
   if (value === NONE_OPTION_VALUE) return 0;
@@ -122,6 +125,8 @@ export default function VotersPage() {
 
   const [voters, setVoters] = useState([]);
   const [barangays, setBarangays] = useState([]);
+  const [religions, setReligions] = useState([]);
+  const [tribes, setTribes] = useState([]);
   const [filterPuroks, setFilterPuroks] = useState([]);
   const [filterPrecincts, setFilterPrecincts] = useState([]);
   const [formPuroks, setFormPuroks] = useState([]);
@@ -172,6 +177,26 @@ export default function VotersPage() {
     () => [{ value: NONE_OPTION_VALUE, label: "Un Assigned" }, ...formPuroks.map((x) => ({ value: x.purok_id, label: x.purok_name }))],
     [formPuroks],
   );
+  const religionOptions = useMemo(
+    () => [
+      BLANK_OPTION,
+      ...religions.map((x) => ({
+        value: x.religion_name,
+        label: x.status === "INACTIVE" ? `${x.religion_name} (Inactive)` : x.religion_name,
+      })),
+    ],
+    [religions],
+  );
+  const tribeOptions = useMemo(
+    () => [
+      BLANK_OPTION,
+      ...tribes.map((x) => ({
+        value: x.tribe_id,
+        label: x.status === "INACTIVE" ? `${x.tribe_name} (Inactive)` : x.tribe_name,
+      })),
+    ],
+    [tribes],
+  );
   const barangayNameById = useMemo(
     () => new Map(barangays.map((x) => [Number(x.barangay_id), x.barangay_name])),
     [barangays],
@@ -213,6 +238,26 @@ export default function VotersPage() {
     } catch (e) {
       setBarangays([]);
       if (!unauthorized(e)) toast.error(extractApiErrorMessage(e, "Failed to load barangays."));
+    }
+  }, [unauthorized]);
+
+  const loadReligions = useCallback(async () => {
+    try {
+      const res = await GetReligions();
+      setReligions(Array.isArray(res?.data?.data) ? res.data.data : []);
+    } catch (e) {
+      setReligions([]);
+      if (!unauthorized(e)) toast.error(extractApiErrorMessage(e, "Failed to load religions."));
+    }
+  }, [unauthorized]);
+
+  const loadTribes = useCallback(async () => {
+    try {
+      const res = await GetTribes();
+      setTribes(Array.isArray(res?.data?.data) ? res.data.data : []);
+    } catch (e) {
+      setTribes([]);
+      if (!unauthorized(e)) toast.error(extractApiErrorMessage(e, "Failed to load tribes."));
     }
   }, [unauthorized]);
 
@@ -319,11 +364,11 @@ export default function VotersPage() {
         router.push({ pathname: auth });
         return;
       }
-      await loadBarangays();
+      await Promise.all([loadBarangays(), loadReligions(), loadTribes()]);
       if (mounted) setReady(true);
     })();
     return () => { mounted = false; };
-  }, [router, loadBarangays]);
+  }, [router, loadBarangays, loadReligions, loadTribes]);
 
   useEffect(() => {
     if (!ready) return;
@@ -345,7 +390,7 @@ export default function VotersPage() {
 
   const resetModal = () => {
     form.resetFields();
-    form.setFieldsValue({ status: "ACTIVE" });
+    form.setFieldsValue({ religion: NONE_OPTION_VALUE, status: "ACTIVE", tribe_id: NONE_OPTION_VALUE });
     setFormPuroks([]);
     setEditing(null);
     setSelectedPhoto(null);
@@ -374,7 +419,8 @@ export default function VotersPage() {
       purok_id: pId,
       marital_status: r?.marital_status || undefined,
       phone_number: r?.phone_number || "",
-      religion: r?.religion || "",
+      religion: r?.religion || NONE_OPTION_VALUE,
+      tribe_id: r?.tribe_id || NONE_OPTION_VALUE,
       sex: normalize(r?.sex) === "female" ? "FEMALE" : normalize(r?.sex) === "male" ? "MALE" : undefined,
       status: formStatus(r?.status),
     });
@@ -405,11 +451,18 @@ export default function VotersPage() {
   const submit = async (vals) => {
     const selectedBarangayId = toFilterLocationId(vals?.barangay_id);
     const selectedPurokId = toFilterLocationId(vals?.purok_id);
+    const selectedTribeId = Number(vals?.tribe_id);
     const fd = new FormData();
-    ["precinct_no","voters_id_number","first_name","middle_name","last_name","extension","birthdate","occupation","marital_status","phone_number","religion","sex"].forEach((k) => {
+    ["precinct_no","voters_id_number","first_name","middle_name","last_name","extension","birthdate","occupation","marital_status","phone_number","sex"].forEach((k) => {
       const v = vals?.[k];
       if (v !== undefined && v !== null && String(v).trim() !== "") fd.append(k, String(v).trim());
     });
+    if (vals?.religion && vals.religion !== NONE_OPTION_VALUE) {
+      fd.append("religion", String(vals.religion).trim());
+    }
+    if (Number.isFinite(selectedTribeId) && selectedTribeId > 0) {
+      fd.append("tribe_id", String(selectedTribeId));
+    }
     if (selectedBarangayId === undefined) {
       form.setFields([{ name: "barangay_id", errors: ["Barangay is required."] }]);
       return;
@@ -558,10 +611,12 @@ export default function VotersPage() {
                         </Popconfirm>
                       </div>
                     </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 text-sm uppercase">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 text-sm uppercase">
                       <div><p className="text-slate-500">Precinct</p><p className="text-slate-800 font-medium">{toUpperText(r?.precinct_no) || "-"}</p></div>
                       <div><p className="text-slate-500">Barangay</p><p className="text-slate-800 font-medium">{toUpperText(getBarangayLabel(r)) || "-"}</p></div>
                       <div><p className="text-slate-500">Purok</p><p className="text-slate-800 font-medium">{toUpperText(getPurokLabel(r)) || "-"}</p></div>
+                      <div><p className="text-slate-500">Religion</p><p className="text-slate-800 font-medium">{toUpperText(r?.religion) || "-"}</p></div>
+                      <div><p className="text-slate-500">Tribe</p><p className="text-slate-800 font-medium">{toUpperText(r?.tribe_name || r?.tribe) || "-"}</p></div>
                     </div>
                     {open ? (
                       <div className="border-t border-slate-200 pt-4">
@@ -571,7 +626,6 @@ export default function VotersPage() {
                           <div><p className="text-slate-500">Marital Status</p><p className="text-slate-800">{toUpperText(r?.marital_status) || "-"}</p></div>
                           <div><p className="text-slate-500">Occupation</p><p className="text-slate-800">{toUpperText(r?.occupation) || "-"}</p></div>
                           <div><p className="text-slate-500">Phone Number</p><p className="text-slate-800">{toUpperText(r?.phone_number) || "-"}</p></div>
-                          <div><p className="text-slate-500">Religion</p><p className="text-slate-800">{toUpperText(r?.religion) || "-"}</p></div>
                           <div><p className="text-slate-500">Created At</p><p className="text-slate-800">{toUpperText(fmtDateTime(r?.created_at)) || "-"}</p></div>
                           <div><p className="text-slate-500">Updated At</p><p className="text-slate-800">{toUpperText(fmtDateTime(r?.updated_at)) || "-"}</p></div>
                         </div>
@@ -636,7 +690,8 @@ export default function VotersPage() {
             </Form.Item>
             <Form.Item label="Marital Status" name="marital_status"><Select allowClear options={[{ value: "SINGLE", label: "Single" }, { value: "MARRIED", label: "Married" }, { value: "WIDOWED", label: "Widowed" }, { value: "SEPARATED", label: "Separated" }]} /></Form.Item>
             <Form.Item label="Phone Number" name="phone_number"><Input maxLength={50} /></Form.Item>
-            <Form.Item label="Religion" name="religion"><Input maxLength={100} /></Form.Item>
+            <Form.Item label="Religion" name="religion"><Select showSearch options={religionOptions} optionFilterProp="label" /></Form.Item>
+            <Form.Item label="Tribe" name="tribe_id"><Select allowClear showSearch options={tribeOptions} optionFilterProp="label" /></Form.Item>
             <Form.Item label="Sex" name="sex"><Select allowClear options={[{ value: "MALE", label: "Male" }, { value: "FEMALE", label: "Female" }]} /></Form.Item>
             <Form.Item label="Status" name="status" initialValue="ACTIVE"><Select options={[{ value: "ACTIVE", label: "Active" }, { value: "INACTIVE", label: "Enactive" }]} /></Form.Item>
           </div>

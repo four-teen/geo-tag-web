@@ -3,6 +3,8 @@ import {
   DashboardOutlined,
   EnvironmentOutlined,
   LogoutOutlined,
+  ReadOutlined,
+  TagsOutlined,
   TeamOutlined,
   UserOutlined,
 } from "@ant-design/icons";
@@ -48,6 +50,18 @@ const baseMenu = [
     label: "Voters",
     key: "/voters",
     icon: <TeamOutlined />,
+    allowedRoles: [USER_ROLES.ADMIN, USER_ROLES.STAFF, USER_ROLES.MUNICIPAL_STAFF, USER_ROLES.VIEWER],
+  },
+  {
+    label: "Tribe Management",
+    key: "/tribes",
+    icon: <TagsOutlined />,
+    allowedRoles: [USER_ROLES.ADMIN, USER_ROLES.STAFF, USER_ROLES.MUNICIPAL_STAFF, USER_ROLES.VIEWER],
+  },
+  {
+    label: "Religion Management",
+    key: "/religions",
+    icon: <ReadOutlined />,
     allowedRoles: [USER_ROLES.ADMIN, USER_ROLES.STAFF, USER_ROLES.MUNICIPAL_STAFF, USER_ROLES.VIEWER],
   },
   {
