@@ -9,8 +9,9 @@ function authHeaders() {
   };
 }
 
-export async function GetVoterInsights() {
+export async function GetVoterInsights(options = {}) {
   return axios.get(buildApiUrl("/bow/dashboard/voter-insights"), {
     headers: authHeaders(),
+    params: options.compact ? { compact: 1 } : undefined,
   });
 }

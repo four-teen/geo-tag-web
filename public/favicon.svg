@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <title>Geo tagging</title>
+  <defs>
+    <clipPath id="geo-clip">
+      <rect x="2" y="2" width="60" height="60" rx="16" />
+    </clipPath>
+    <linearGradient id="teal-bg" x1="10" y1="58" x2="56" y2="8" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#0F766E" />
+      <stop offset="1" stop-color="#14B8A6" />
+    </linearGradient>
+    <linearGradient id="orange-sweep" x1="4" y1="4" x2="44" y2="38" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FFB000" />
+      <stop offset="1" stop-color="#FF7A00" />
+    </linearGradient>
+  </defs>
+  <g clip-path="url(#geo-clip)">
+    <rect x="2" y="2" width="60" height="60" fill="url(#teal-bg)" />
+    <path d="M2 2h60v15.5C43.5 15 23.5 22.5 2 43Z" fill="url(#orange-sweep)" />
+    <path d="M2 37.5C19 22 38 16 62 18v6C40 22 22 29 2 48Z" fill="#FFD166" opacity="0.42" />
+  </g>
+  <path
+    fill="#FFFFFF"
+    d="M32 8.5c-11.32 0-20.5 8.94-20.5 19.98 0 14.9 18.3 26.25 19.08 26.73a2.75 2.75 0 0 0 2.84 0c.79-.48 19.08-11.83 19.08-26.73C52.5 17.44 43.32 8.5 32 8.5Zm0 32.1c-6.7 0-12.13-5.43-12.13-12.12S25.3 16.35 32 16.35s12.13 5.43 12.13 12.13S38.7 40.6 32 40.6Z"
+  />
+  <circle cx="32" cy="28.48" r="7.5" fill="none" stroke="#FFB000" stroke-width="3" />
+  <circle cx="32" cy="28.48" r="3.5" fill="#0F766E" />
+</svg>

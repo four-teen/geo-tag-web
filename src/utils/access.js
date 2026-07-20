@@ -37,6 +37,7 @@ const ROUTE_ROLE_ACCESS = {
   "/tribes": [USER_ROLES.ADMIN, USER_ROLES.STAFF, USER_ROLES.MUNICIPAL_STAFF, USER_ROLES.VIEWER],
   "/voters": [USER_ROLES.ADMIN, USER_ROLES.STAFF, USER_ROLES.MUNICIPAL_STAFF, USER_ROLES.VIEWER],
   "/recipients": [USER_ROLES.ADMIN, USER_ROLES.STAFF, USER_ROLES.MUNICIPAL_STAFF, USER_ROLES.VIEWER],
+  "/voter-imports": [USER_ROLES.ADMIN, USER_ROLES.STAFF],
   "/account": [USER_ROLES.ADMIN],
 };
 
@@ -118,18 +119,30 @@ export function canAccessRoute(pathname = "") {
 export function filterMenuByAccess(menuItems = []) {
   const role = getUserRole();
 
-  return menuItems.filter((item) => {
+  return menuItems.reduce((visibleItems, item) => {
     if (Array.isArray(item?.allowedRoles) && item.allowedRoles.length > 0) {
-      return item.allowedRoles.includes(role);
+      if (!item.allowedRoles.includes(role)) return visibleItems;
     }
 
-    if (item?.adminOnly && role !== USER_ROLES.ADMIN) return false;
-    if (item?.staffOnly && role !== USER_ROLES.STAFF) return false;
-    if (item?.municipalOnly && role !== USER_ROLES.MUNICIPAL_STAFF) return false;
-    if (item?.viewerOnly && role !== USER_ROLES.VIEWER) return false;
+    if (item?.adminOnly && role !== USER_ROLES.ADMIN) return visibleItems;
+    if (item?.staffOnly && role !== USER_ROLES.STAFF) return visibleItems;
+    if (item?.municipalOnly && role !== USER_ROLES.MUNICIPAL_STAFF) return visibleItems;
+    if (item?.viewerOnly && role !== USER_ROLES.VIEWER) return visibleItems;
 
-    return true;
-  });
+    if (Array.isArray(item?.children)) {
+      const children = filterMenuByAccess(item.children);
+      if (children.length === 0) return visibleItems;
+
+      visibleItems.push({
+        ...item,
+        children,
+      });
+      return visibleItems;
+    }
+
+    visibleItems.push(item);
+    return visibleItems;
+  }, []);
 }
 
 export function clearSessionCookies() {
