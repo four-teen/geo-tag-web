@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import {
   DashboardOutlined,
   EnvironmentOutlined,
+  ImportOutlined,
   LogoutOutlined,
   ReadOutlined,
   TagsOutlined,
@@ -15,65 +16,114 @@ import TopicMenu from "../../components/TopicMenu";
 import Footer from "../../components/Footer";
 import { filterMenuByAccess, getRoleLabel, getUserRole, USER_ROLES } from "../../../utils/access";
 
+const sharedRoles = [
+  USER_ROLES.ADMIN,
+  USER_ROLES.STAFF,
+  USER_ROLES.MUNICIPAL_STAFF,
+  USER_ROLES.VIEWER,
+];
+
 const baseMenu = [
   {
-    label: "Administrator Dashboard",
-    key: "/dashboard",
-    icon: <DashboardOutlined />,
-    allowedRoles: [USER_ROLES.ADMIN],
+    type: "group",
+    key: "overview-group",
+    label: "Overview",
+    children: [
+      {
+        label: "Dashboard",
+        key: "/dashboard",
+        icon: <DashboardOutlined />,
+        allowedRoles: [USER_ROLES.ADMIN],
+      },
+      {
+        label: "Dashboard",
+        key: "/staff/dashboard",
+        icon: <DashboardOutlined />,
+        allowedRoles: [USER_ROLES.STAFF],
+      },
+      {
+        label: "Dashboard",
+        key: "/municipal/dashboard",
+        icon: <DashboardOutlined />,
+        allowedRoles: [USER_ROLES.MUNICIPAL_STAFF],
+      },
+      {
+        label: "Dashboard",
+        key: "/viewer/dashboard",
+        icon: <DashboardOutlined />,
+        allowedRoles: [USER_ROLES.VIEWER],
+      },
+    ],
   },
   {
-    label: "Staff Dashboard",
-    key: "/staff/dashboard",
-    icon: <DashboardOutlined />,
-    allowedRoles: [USER_ROLES.STAFF],
+    type: "group",
+    key: "operations-group",
+    label: "Core operations",
+    children: [
+      {
+        label: "Voter Masterlist",
+        key: "/voters",
+        icon: <TeamOutlined />,
+        allowedRoles: sharedRoles,
+      },
+      {
+        label: "Voter Imports",
+        key: "/voter-imports",
+        icon: <ImportOutlined />,
+        allowedRoles: [USER_ROLES.ADMIN, USER_ROLES.STAFF],
+      },
+      {
+        label: "Locations & Precincts",
+        key: "/barangays",
+        icon: <EnvironmentOutlined />,
+        allowedRoles: sharedRoles,
+      },
+    ],
   },
   {
-    label: "Municipal Staff Dashboard",
-    key: "/municipal/dashboard",
-    icon: <DashboardOutlined />,
-    allowedRoles: [USER_ROLES.MUNICIPAL_STAFF],
+    type: "group",
+    key: "reference-group",
+    label: "Reference data",
+    children: [
+      {
+        label: "Tribes",
+        key: "/tribes",
+        icon: <TagsOutlined />,
+        allowedRoles: sharedRoles,
+      },
+      {
+        label: "Religions",
+        key: "/religions",
+        icon: <ReadOutlined />,
+        allowedRoles: sharedRoles,
+      },
+    ],
   },
   {
-    label: "Viewer Dashboard",
-    key: "/viewer/dashboard",
-    icon: <DashboardOutlined />,
-    allowedRoles: [USER_ROLES.VIEWER],
+    type: "group",
+    key: "administration-group",
+    label: "Administration",
+    children: [
+      {
+        label: "User Accounts",
+        key: "/account",
+        icon: <UserOutlined />,
+        allowedRoles: [USER_ROLES.ADMIN],
+      },
+    ],
   },
   {
-    label: "Barangay / Purok / Precinct",
-    key: "/barangays",
-    icon: <EnvironmentOutlined />,
-    allowedRoles: [USER_ROLES.ADMIN, USER_ROLES.STAFF, USER_ROLES.MUNICIPAL_STAFF, USER_ROLES.VIEWER],
-  },
-  {
-    label: "Voters",
-    key: "/voters",
-    icon: <TeamOutlined />,
-    allowedRoles: [USER_ROLES.ADMIN, USER_ROLES.STAFF, USER_ROLES.MUNICIPAL_STAFF, USER_ROLES.VIEWER],
-  },
-  {
-    label: "Tribe Management",
-    key: "/tribes",
-    icon: <TagsOutlined />,
-    allowedRoles: [USER_ROLES.ADMIN, USER_ROLES.STAFF, USER_ROLES.MUNICIPAL_STAFF, USER_ROLES.VIEWER],
-  },
-  {
-    label: "Religion Management",
-    key: "/religions",
-    icon: <ReadOutlined />,
-    allowedRoles: [USER_ROLES.ADMIN, USER_ROLES.STAFF, USER_ROLES.MUNICIPAL_STAFF, USER_ROLES.VIEWER],
-  },
-  {
-    label: "Accounts",
-    key: "/account",
-    icon: <UserOutlined />,
-    allowedRoles: [USER_ROLES.ADMIN],
-  },
-  {
-    label: "Logout",
-    key: "/logout",
-    icon: <LogoutOutlined />,
+    type: "group",
+    key: "session-group",
+    label: "Session",
+    children: [
+      {
+        label: "Sign Out",
+        key: "/logout",
+        icon: <LogoutOutlined />,
+        danger: true,
+      },
+    ],
   },
 ];
 

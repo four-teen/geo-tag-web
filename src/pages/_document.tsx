@@ -4,6 +4,8 @@ export default function Document() {
   return (
     <Html>
       <Head>
+        <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+        <link rel="shortcut icon" href="/favicon.svg" />
         <link rel="manifest" href="/manifest.json" />
         <link rel="apple-touch-icon" href="/bagong-isulan.jpg"></link>
         <meta name="theme-color" content="#fff" />
