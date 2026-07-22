@@ -12,7 +12,7 @@ import {
   WarningOutlined,
 } from "@ant-design/icons";
 import { Card, Empty, Progress, Skeleton } from "antd";
-import { ToastContainer, toast } from "react-toastify";
+import { toast } from "react-toastify";
 import Cookies from "js-cookie";
 import Layout from "../layouts";
 import { Auth } from "../api/auth";
@@ -510,7 +510,6 @@ export default function AdminDashboard() {
                             <h3>{item.label || "Unnamed barangay"}</h3>
                             {isInactive && <span>Inactive</span>}
                           </div>
-                          <p>Barangay ID #{item.barangay_id}</p>
                         </div>
                         <div className="dashboard-directory-count">
                           <strong>{whole(voterTotal)}</strong>
@@ -625,7 +624,6 @@ export default function AdminDashboard() {
         )}
       </main>
 
-      <ToastContainer />
     </Layout>
   );
 }

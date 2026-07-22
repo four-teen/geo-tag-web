@@ -11,7 +11,7 @@ import {
   TeamOutlined,
 } from "@ant-design/icons";
 import { Card, Empty, Progress, Skeleton } from "antd";
-import { ToastContainer, toast } from "react-toastify";
+import { toast } from "react-toastify";
 import Cookies from "js-cookie";
 import Layout from "../../layouts";
 import { Auth } from "../../api/auth";
@@ -411,7 +411,6 @@ export default function StaffDashboard() {
         )}
       </main>
 
-      <ToastContainer />
     </Layout>
   );
 }
