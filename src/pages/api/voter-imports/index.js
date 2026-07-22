@@ -65,3 +65,10 @@ export function CommitVoterImport(id, mode, confirmation, progressToken) {
 export function DeleteVoterImport(id) {
   return axios.delete(buildApiUrl(`/bow/voter-imports/${id}`), { headers: authHeaders() });
 }
+
+export function DeleteBarangayVoterImports(id, confirmation) {
+  return axios.delete(buildApiUrl(`/bow/voter-imports/${id}/barangay`), {
+    headers: authHeaders(),
+    data: { confirmation },
+  });
+}

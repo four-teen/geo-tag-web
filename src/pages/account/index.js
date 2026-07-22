@@ -2,6 +2,7 @@ import Head from "next/head";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/router";
 import {
+  Alert,
   Avatar,
   Button,
   Card,
@@ -31,6 +32,7 @@ const ACCOUNT_PAGE_CHUNK = 12;
 const defaultRoleOptions = [
   { value: "administrator", label: "Administrator" },
   { value: "staff", label: "Staff" },
+  { value: "voter_editor", label: "Voter Records Editor" },
   { value: "municipal_staff", label: "Municipal Staff" },
   { value: "viewer", label: "Viewer" },
 ];
@@ -71,6 +73,7 @@ function initialFormValues() {
 function roleLabel(role = "") {
   if (role === "administrator") return "Admin";
   if (role === "staff") return "Staff";
+  if (role === "voter_editor") return "Voter Records Editor";
   if (role === "municipal_staff") return "Municipal Staff";
   if (role === "viewer") return "Viewer";
   return role || "Unknown";
@@ -82,6 +85,7 @@ function getAvatarStorageKey(userId) {
 
 function getPermissionCodesForRole(role = "staff") {
   if (role === "staff") return ["bow.manage_geo", "bow.view_geo"];
+  if (role === "voter_editor") return ["bow.edit_geo", "bow.view_geo"];
   if (role === "municipal_staff" || role === "viewer") return ["bow.view_geo"];
   return [];
 }
@@ -256,7 +260,11 @@ export function AccountManagementPage({ mode = "administrator" }) {
       password: "",
       role,
       is_active: !!account?.is_active,
-      can_delete: isAdminMode && role === "administrator" ? true : isAdminMode ? !!account?.can_delete : false,
+      can_delete: isAdminMode && role === "administrator"
+        ? true
+        : isAdminMode && role !== "voter_editor"
+          ? !!account?.can_delete
+          : false,
       barangay_scope: scope,
       barangay_ids: Array.isArray(account?.barangays)
         ? account.barangays.map((item) => item.barangay_id)
@@ -309,7 +317,9 @@ export function AccountManagementPage({ mode = "administrator" }) {
     data.append("is_active", values.is_active ? "1" : "0");
     data.append(
       "can_delete",
-      isAdminMode && values.role !== "administrator" && values.can_delete ? "1" : values.role === "administrator" ? "1" : "0"
+      isAdminMode && !["administrator", "voter_editor"].includes(values.role) && values.can_delete
+        ? "1"
+        : values.role === "administrator" ? "1" : "0"
     );
     data.append("barangay_scope", String(values.barangay_scope || "ALL"));
     getPermissionCodesForRole(values.role).forEach((code) => data.append("permission_codes[]", code));
@@ -336,6 +346,10 @@ export function AccountManagementPage({ mode = "administrator" }) {
       payload.barangay_scope = "ALL";
       payload.barangay_ids = [];
       payload.can_delete = true;
+    }
+
+    if (payload.role === "voter_editor") {
+      payload.can_delete = false;
     }
 
     if (!isAdminMode) {
@@ -487,6 +501,8 @@ export function AccountManagementPage({ mode = "administrator" }) {
                             ? "blue"
                             : account.role === "staff"
                               ? "gold"
+                              : account.role === "voter_editor"
+                                ? "geekblue"
                               : account.role === "municipal_staff"
                                 ? "purple"
                                 : "cyan"
@@ -515,8 +531,13 @@ export function AccountManagementPage({ mode = "administrator" }) {
                     {isAdminMode ? (
                       <div>
                         <p className="text-slate-500">Delete Access</p>
-                        <Tag color={account.role === "administrator" || account.can_delete ? "green" : "red"} className="mt-1">
-                          {account.role === "administrator" || account.can_delete ? "ENABLED" : "DISABLED"}
+                        <Tag
+                          color={account.role === "voter_editor" ? "blue" : account.role === "administrator" || account.can_delete ? "green" : "red"}
+                          className="mt-1"
+                        >
+                          {account.role === "voter_editor"
+                            ? "ARCHIVE ONLY"
+                            : account.role === "administrator" || account.can_delete ? "ENABLED" : "DISABLED"}
                         </Tag>
                       </div>
                     ) : null}
@@ -609,6 +630,8 @@ export function AccountManagementPage({ mode = "administrator" }) {
                   can_delete: true,
                 });
                 setFormScope("ALL");
+              } else if (isAdminMode && changedValues.role === "voter_editor") {
+                form.setFieldsValue({ can_delete: false });
               } else if (!isAdminMode) {
                 form.setFieldsValue({ can_delete: false });
               }
@@ -675,8 +698,18 @@ export function AccountManagementPage({ mode = "administrator" }) {
           </Form.Item>
           {isAdminMode ? (
             <Form.Item label="Allow Delete Actions" name="can_delete" valuePropName="checked">
-              <Switch disabled={formRole === "administrator"} />
+              <Switch disabled={["administrator", "voter_editor"].includes(formRole)} />
             </Form.Item>
+          ) : null}
+
+          {formRole === "voter_editor" ? (
+            <Alert
+              type="info"
+              showIcon
+              message="Voter Records Editor access"
+              description="Can view and edit existing voter and location records, including setting status to Inactive for archiving. Adding records, voter imports, permanent deletion, and user administration are blocked."
+              style={{ marginBottom: 16 }}
+            />
           ) : null}
 
           {formRole !== "administrator" && formScope === "SPECIFIC" ? (

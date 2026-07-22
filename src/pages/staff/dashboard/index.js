@@ -17,6 +17,7 @@ import Layout from "../../layouts";
 import { Auth } from "../../api/auth";
 import { GetVoterInsights } from "../../api/dashboard";
 import { extractApiErrorMessage } from "../../../utils/api";
+import { isVoterEditor } from "../../../utils/access";
 
 const ApexChart = dynamic(() => import("react-apexcharts"), { ssr: false });
 
@@ -27,6 +28,7 @@ const whole = (value) => numberFormatter.format(Number(value || 0));
 
 export default function StaffDashboard() {
   const router = useRouter();
+  const editorMode = isVoterEditor();
   const [loading, setLoading] = useState(true);
   const [insights, setInsights] = useState(null);
 
@@ -166,15 +168,15 @@ export default function StaffDashboard() {
   return (
     <Layout>
       <Head>
-        <title>Staff Dashboard</title>
+        <title>{editorMode ? "Voter Records Dashboard" : "Staff Dashboard"}</title>
       </Head>
 
       <main className="p-4 sm:p-6 space-y-6">
         <section className="rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
             <div>
-              <p className="text-sm uppercase tracking-[0.3em] text-slate-400">Staff Overview</p>
-              <h1 className="mt-1 text-3xl font-semibold text-slate-900">Staff Dashboard</h1>
+              <p className="text-sm uppercase tracking-[0.3em] text-slate-400">{editorMode ? "Records Overview" : "Staff Overview"}</p>
+              <h1 className="mt-1 text-3xl font-semibold text-slate-900">{editorMode ? "Voter Records Dashboard" : "Staff Dashboard"}</h1>
               <p className="mt-2 max-w-2xl text-sm text-slate-500">
                 Minimal view of the voter masterlist focused on coverage, evaluation trends, and the highest-pressure barangays.
               </p>

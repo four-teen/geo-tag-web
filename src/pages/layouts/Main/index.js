@@ -19,6 +19,7 @@ import { filterMenuByAccess, getRoleLabel, getUserRole, USER_ROLES } from "../..
 const sharedRoles = [
   USER_ROLES.ADMIN,
   USER_ROLES.STAFF,
+  USER_ROLES.VOTER_EDITOR,
   USER_ROLES.MUNICIPAL_STAFF,
   USER_ROLES.VIEWER,
 ];
@@ -39,7 +40,7 @@ const baseMenu = [
         label: "Dashboard",
         key: "/staff/dashboard",
         icon: <DashboardOutlined />,
-        allowedRoles: [USER_ROLES.STAFF],
+        allowedRoles: [USER_ROLES.STAFF, USER_ROLES.VOTER_EDITOR],
       },
       {
         label: "Dashboard",
