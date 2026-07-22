@@ -29,7 +29,7 @@ import {
   UploadOutlined,
 } from "@ant-design/icons";
 import QRCode from "react-qr-code";
-import { ToastContainer, toast } from "react-toastify";
+import { toast } from "react-toastify";
 import Cookies from "js-cookie";
 import Layout from "../layouts";
 import { Auth } from "../api/auth";
@@ -913,7 +913,6 @@ export default function VotersPage() {
         </Form>
       </Modal>
 
-      <ToastContainer />
     </Layout>
   );
 }

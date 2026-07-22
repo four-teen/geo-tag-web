@@ -33,7 +33,7 @@ import {
   UploadOutlined,
   WarningOutlined,
 } from "@ant-design/icons";
-import { ToastContainer, toast } from "react-toastify";
+import { toast } from "react-toastify";
 import Cookies from "js-cookie";
 import Layout from "../layouts";
 import { Auth } from "../api/auth";
@@ -465,7 +465,6 @@ export default function VoterImportsPage() {
   return (
     <Layout>
       <Head><title>Voter Imports</title></Head>
-      <ToastContainer position="top-right" autoClose={3500} />
 
       <Space direction="vertical" size="large" style={{ width: "100%" }}>
         <div>

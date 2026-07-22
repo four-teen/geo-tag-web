@@ -3,7 +3,7 @@ import Image from "next/image";
 import { Button, Form, Input } from "antd";
 import { useRouter } from "next/router";
 import { useState } from "react";
-import { ToastContainer, toast } from "react-toastify";
+import { toast } from "react-toastify";
 import Cookies from "js-cookie";
 import { login } from "./api/login";
 import { getDefaultLandingPath } from "../utils/access";
@@ -45,10 +45,10 @@ export default function Home() {
       Cookies.set("barangay_ids", JSON.stringify(res.data?.data?.barangay_ids || []));
       Cookies.set("tokenApiUrl", process.env.NEXT_PUBLIC_API_URL || "");
 
-      toast.success("Login successful");
+      toast.success("Login successful", { position: "top-center" });
       await router.replace({ pathname: getDefaultLandingPath() });
     } catch (error) {
-      toast.error("Login failed");
+      toast.error("Login failed", { position: "top-center" });
     } finally {
       setSubmitting(false);
     }
@@ -117,7 +117,7 @@ export default function Home() {
               </Button>
             </Form>
 
-            <p className="login-version">Version 0.4.0.3</p>
+            <p className="login-version">Version 0.5.0.4</p>
           </section>
         </main>
 
@@ -135,7 +135,6 @@ export default function Home() {
         </aside>
       </div>
 
-      <ToastContainer position="top-center" newestOnTop />
     </>
   );
 }
