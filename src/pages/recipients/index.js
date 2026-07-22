@@ -135,6 +135,7 @@ export default function VotersPage() {
   const [form] = Form.useForm();
   const formBarangayId = Form.useWatch("barangay_id", form);
   const canManageGeo = hasAnyPermission([GEO_PERMISSIONS.MANAGE_GEO]);
+  const canEditGeo = hasAnyPermission([GEO_PERMISSIONS.MANAGE_GEO, GEO_PERMISSIONS.EDIT_GEO]);
   const canDeleteGeo = canManageGeo && canDeleteActions();
 
   const [ready, setReady] = useState(false);
@@ -613,7 +614,9 @@ export default function VotersPage() {
               <strong>{filteredCount.toLocaleString()}</strong>
               <small>of {totalCount.toLocaleString()} registered voters</small>
             </div>
-            <Button className="voter-registry-add" type="primary" size="large" icon={<PlusOutlined />} disabled={!canManageGeo} onClick={openCreate}>Add voter</Button>
+            {canManageGeo ? (
+              <Button className="voter-registry-add" type="primary" size="large" icon={<PlusOutlined />} onClick={openCreate}>Add voter</Button>
+            ) : null}
           </div>
         </section>
 
@@ -729,10 +732,12 @@ export default function VotersPage() {
                     </div>
                     <div className="voter-record-actions">
                       <Button aria-expanded={open} icon={open ? <UpOutlined /> : <DownOutlined />} onClick={() => setExpanded((p) => ({ ...p, [r.recipient_id]: !p[r.recipient_id] }))}>{open ? "Less details" : "View details"}</Button>
-                      <Button icon={<EditOutlined />} disabled={!canManageGeo} onClick={() => openEdit(r)}>Edit</Button>
-                      <Popconfirm title="Delete this voter?" description="This action cannot be undone." onConfirm={() => remove(r.recipient_id)} disabled={!canDeleteGeo}>
-                        <Button danger icon={<DeleteOutlined />} disabled={!canDeleteGeo || deletingId === r.recipient_id} loading={deletingId === r.recipient_id}>Delete</Button>
-                      </Popconfirm>
+                       <Button icon={<EditOutlined />} disabled={!canEditGeo} onClick={() => openEdit(r)}>Edit</Button>
+                       {canDeleteGeo ? (
+                         <Popconfirm title="Delete this voter?" description="This action cannot be undone." onConfirm={() => remove(r.recipient_id)}>
+                           <Button danger icon={<DeleteOutlined />} disabled={deletingId === r.recipient_id} loading={deletingId === r.recipient_id}>Delete</Button>
+                         </Popconfirm>
+                       ) : null}
                     </div>
                   </header>
 
@@ -805,7 +810,7 @@ export default function VotersPage() {
         onCancel={() => { setModalOpen(false); resetModal(); }}
         onOk={() => form.submit()}
         okText={editing?.recipient_id ? "Update" : "Save"}
-        okButtonProps={{ disabled: !canManageGeo, loading: submitting }}
+        okButtonProps={{ disabled: editing?.recipient_id ? !canEditGeo : !canManageGeo, loading: submitting }}
         cancelButtonProps={{ disabled: submitting }}
       >
         <Form form={form} layout="vertical" onFinish={submit} className="voter-form">

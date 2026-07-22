@@ -2,6 +2,7 @@ import Head from "next/head";
 import Image from "next/image";
 import { Button, Form, Input } from "antd";
 import { useRouter } from "next/router";
+import { useState } from "react";
 import { ToastContainer, toast } from "react-toastify";
 import Cookies from "js-cookie";
 import { login } from "./api/login";
@@ -9,8 +10,13 @@ import { getDefaultLandingPath } from "../utils/access";
 
 export default function Home() {
   const router = useRouter();
+  const [submitting, setSubmitting] = useState(false);
 
   const onFinish = async (values) => {
+    if (submitting) return;
+
+    setSubmitting(true);
+
     try {
       const res = await login(values);
 
@@ -39,13 +45,12 @@ export default function Home() {
       Cookies.set("barangay_ids", JSON.stringify(res.data?.data?.barangay_ids || []));
       Cookies.set("tokenApiUrl", process.env.NEXT_PUBLIC_API_URL || "");
 
-      toast.success("Login success");
-
-      setTimeout(() => {
-        router.push({ pathname: getDefaultLandingPath() });
-      }, 800);
+      toast.success("Login successful");
+      await router.replace({ pathname: getDefaultLandingPath() });
     } catch (error) {
       toast.error("Login failed");
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -55,23 +60,37 @@ export default function Home() {
         <title>Geo Tagging | Login</title>
       </Head>
 
-      <div className="min-h-screen grid grid-cols-1 lg:grid-cols-2 bg-slate-100">
-        <div className="flex items-center justify-center p-6">
-          <div className="w-full max-w-md bg-white rounded-lg shadow p-6">
-            <div className="flex justify-center mb-4">
-              <Image src="/logo.jpg" width={110} height={110} className="rounded-full" alt="logo" />
+      <div className="login-page">
+        <main className="login-panel">
+          <section className="login-card" aria-labelledby="login-heading">
+            <div className="login-brand">
+              <div className="login-logo">
+                <Image
+                  src="/logo.jpg"
+                  width={110}
+                  height={110}
+                  priority
+                  sizes="110px"
+                  alt="Bagong Isulan logo"
+                />
+              </div>
             </div>
 
-            <h1 className="text-center text-xl font-semibold text-slate-800">Geo Tagging Login</h1>
-            <p className="text-center text-sm text-slate-500 mb-5">Administrator, staff, municipal staff, and viewer access</p>
+            <h1 id="login-heading" className="login-title">Geo Tagging Login</h1>
+            <p className="login-subtitle">Administrator, staff, municipal staff, and viewer access</p>
 
-            <Form layout="vertical" onFinish={onFinish} autoComplete="off">
+            <Form className="login-form" layout="vertical" onFinish={onFinish} autoComplete="on">
               <Form.Item
                 label="Username"
                 name="username"
                 rules={[{ required: true, message: "Please input your username." }]}
               >
-                <Input size="large" />
+                <Input
+                  size="large"
+                  autoComplete="username"
+                  disabled={submitting}
+                  spellCheck={false}
+                />
               </Form.Item>
 
               <Form.Item
@@ -79,27 +98,44 @@ export default function Home() {
                 name="password"
                 rules={[{ required: true, message: "Please input your password." }]}
               >
-                <Input.Password size="large" />
+                <Input.Password
+                  size="large"
+                  autoComplete="current-password"
+                  disabled={submitting}
+                />
               </Form.Item>
 
-              <Button size="large" className="w-full bg-blue-700 text-white" htmlType="submit">
+              <Button
+                type="primary"
+                size="large"
+                className="login-submit"
+                htmlType="submit"
+                loading={submitting}
+                disabled={submitting}
+              >
                 Login
               </Button>
             </Form>
-          </div>
-        </div>
 
-        <div
-          className="hidden lg:block"
-          style={{
-            backgroundImage: "url('/bg_1.jpg')",
-            backgroundSize: "cover",
-            backgroundPosition: "center",
-          }}
-        />
+            <p className="login-version">Version 0.4.0.3</p>
+          </section>
+        </main>
+
+        <aside className="login-visual" aria-hidden="true">
+          <Image
+            src="/bg_1.jpg"
+            alt=""
+            fill
+            priority
+            quality={78}
+            sizes="(min-width: 1024px) 52vw, 0px"
+            className="login-visual-image"
+          />
+          <div className="login-visual-overlay" />
+        </aside>
       </div>
 
-      <ToastContainer />
+      <ToastContainer position="top-center" newestOnTop />
     </>
   );
 }

@@ -2,12 +2,14 @@ import Cookies from "js-cookie";
 
 export const GEO_PERMISSIONS = {
   MANAGE_GEO: "bow.manage_geo",
+  EDIT_GEO: "bow.edit_geo",
   VIEW_GEO: "bow.view_geo",
 };
 
 export const USER_ROLES = {
   ADMIN: "administrator",
   STAFF: "staff",
+  VOTER_EDITOR: "voter_editor",
   MUNICIPAL_STAFF: "municipal_staff",
   VIEWER: "viewer",
 };
@@ -29,14 +31,14 @@ const SESSION_COOKIE_KEYS = [
 
 const ROUTE_ROLE_ACCESS = {
   "/dashboard": [USER_ROLES.ADMIN],
-  "/staff/dashboard": [USER_ROLES.STAFF],
+  "/staff/dashboard": [USER_ROLES.STAFF, USER_ROLES.VOTER_EDITOR],
   "/municipal/dashboard": [USER_ROLES.MUNICIPAL_STAFF],
   "/viewer/dashboard": [USER_ROLES.VIEWER],
-  "/barangays": [USER_ROLES.ADMIN, USER_ROLES.STAFF, USER_ROLES.MUNICIPAL_STAFF, USER_ROLES.VIEWER],
-  "/religions": [USER_ROLES.ADMIN, USER_ROLES.STAFF, USER_ROLES.MUNICIPAL_STAFF, USER_ROLES.VIEWER],
-  "/tribes": [USER_ROLES.ADMIN, USER_ROLES.STAFF, USER_ROLES.MUNICIPAL_STAFF, USER_ROLES.VIEWER],
-  "/voters": [USER_ROLES.ADMIN, USER_ROLES.STAFF, USER_ROLES.MUNICIPAL_STAFF, USER_ROLES.VIEWER],
-  "/recipients": [USER_ROLES.ADMIN, USER_ROLES.STAFF, USER_ROLES.MUNICIPAL_STAFF, USER_ROLES.VIEWER],
+  "/barangays": [USER_ROLES.ADMIN, USER_ROLES.STAFF, USER_ROLES.VOTER_EDITOR, USER_ROLES.MUNICIPAL_STAFF, USER_ROLES.VIEWER],
+  "/religions": [USER_ROLES.ADMIN, USER_ROLES.STAFF, USER_ROLES.VOTER_EDITOR, USER_ROLES.MUNICIPAL_STAFF, USER_ROLES.VIEWER],
+  "/tribes": [USER_ROLES.ADMIN, USER_ROLES.STAFF, USER_ROLES.VOTER_EDITOR, USER_ROLES.MUNICIPAL_STAFF, USER_ROLES.VIEWER],
+  "/voters": [USER_ROLES.ADMIN, USER_ROLES.STAFF, USER_ROLES.VOTER_EDITOR, USER_ROLES.MUNICIPAL_STAFF, USER_ROLES.VIEWER],
+  "/recipients": [USER_ROLES.ADMIN, USER_ROLES.STAFF, USER_ROLES.VOTER_EDITOR, USER_ROLES.MUNICIPAL_STAFF, USER_ROLES.VIEWER],
   "/voter-imports": [USER_ROLES.ADMIN, USER_ROLES.STAFF],
   "/account": [USER_ROLES.ADMIN],
 };
@@ -50,6 +52,7 @@ export function getRoleLabel(role = "") {
 
   if (normalized === USER_ROLES.ADMIN) return "Administrator";
   if (normalized === USER_ROLES.STAFF) return "Staff";
+  if (normalized === USER_ROLES.VOTER_EDITOR) return "Voter Records Editor";
   if (normalized === USER_ROLES.MUNICIPAL_STAFF) return "Municipal Staff";
   if (normalized === USER_ROLES.VIEWER) return "Viewer";
   return "User";
@@ -61,6 +64,10 @@ export function isAdministrator() {
 
 export function isStaff() {
   return getUserRole() === USER_ROLES.STAFF;
+}
+
+export function isVoterEditor() {
+  return getUserRole() === USER_ROLES.VOTER_EDITOR;
 }
 
 export function isMunicipalStaff() {
@@ -75,12 +82,17 @@ function canManageGeoByRole(role) {
   return [USER_ROLES.ADMIN, USER_ROLES.STAFF].includes(role);
 }
 
+function canEditGeoByRole(role) {
+  return [USER_ROLES.ADMIN, USER_ROLES.STAFF, USER_ROLES.VOTER_EDITOR].includes(role);
+}
+
 function canViewGeoByRole(role) {
-  return [USER_ROLES.ADMIN, USER_ROLES.STAFF, USER_ROLES.MUNICIPAL_STAFF, USER_ROLES.VIEWER].includes(role);
+  return [USER_ROLES.ADMIN, USER_ROLES.STAFF, USER_ROLES.VOTER_EDITOR, USER_ROLES.MUNICIPAL_STAFF, USER_ROLES.VIEWER].includes(role);
 }
 
 export function canDeleteActions() {
   if (isAdministrator()) return true;
+  if (isVoterEditor()) return false;
 
   const raw = String(Cookies.get("can_delete") || "").trim().toLowerCase();
   return raw === "1" || raw === "true" || raw === "yes";
@@ -90,6 +102,7 @@ export function hasAnyPermission(codes = []) {
   const role = getUserRole();
   return codes.some((code) => {
     if (code === GEO_PERMISSIONS.MANAGE_GEO) return canManageGeoByRole(role);
+    if (code === GEO_PERMISSIONS.EDIT_GEO) return canEditGeoByRole(role);
     if (code === GEO_PERMISSIONS.VIEW_GEO) return canViewGeoByRole(role);
     return false;
   });
@@ -100,6 +113,7 @@ export function getDefaultLandingPath() {
 
   if (role === USER_ROLES.ADMIN) return "/dashboard";
   if (role === USER_ROLES.STAFF) return "/staff/dashboard";
+  if (role === USER_ROLES.VOTER_EDITOR) return "/staff/dashboard";
   if (role === USER_ROLES.MUNICIPAL_STAFF) return "/municipal/dashboard";
   if (role === USER_ROLES.VIEWER) return "/viewer/dashboard";
   return "/staff/dashboard";

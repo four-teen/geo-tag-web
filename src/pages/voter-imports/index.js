@@ -40,6 +40,7 @@ import { Auth } from "../api/auth";
 import { GetBarangays } from "../api/barangay";
 import {
   CommitVoterImport,
+  DeleteBarangayVoterImports,
   DeleteVoterImport,
   GetVoterImportCommitProgress,
   GetVoterImport,
@@ -48,6 +49,7 @@ import {
   PreviewVoterImport,
 } from "../api/voter-imports";
 import { extractApiErrorMessage } from "../../utils/api";
+import { canDeleteActions } from "../../utils/access";
 
 const { Dragger } = Upload;
 const { Text, Title } = Typography;
@@ -92,6 +94,8 @@ const createProgressToken = () => {
 export default function VoterImportsPage() {
   const router = useRouter();
   const [commitForm] = Form.useForm();
+  const [deleteForm] = Form.useForm();
+  const canDelete = canDeleteActions();
   const [ready, setReady] = useState(false);
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -107,6 +111,8 @@ export default function VoterImportsPage() {
   const [rowLoading, setRowLoading] = useState(false);
   const [commitOpen, setCommitOpen] = useState(false);
   const [commitComplete, setCommitComplete] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [deletingBarangay, setDeletingBarangay] = useState(false);
   const [commitProgress, setCommitProgress] = useState({
     status: "WAITING",
     processed_rows: 0,
@@ -321,6 +327,43 @@ export default function VoterImportsPage() {
     }
   };
 
+  const openBarangayDelete = (record) => {
+    deleteForm.resetFields();
+    setDeleteTarget(record);
+  };
+
+  const deleteBarangayImports = async (values) => {
+    if (!deleteTarget?.import_id) return;
+
+    try {
+      setDeletingBarangay(true);
+      const response = await DeleteBarangayVoterImports(
+        deleteTarget.import_id,
+        values.confirmation,
+      );
+      const summary = response?.data?.data || {};
+
+      if (Number(selectedImport?.barangay_id) === Number(deleteTarget.barangay_id)) {
+        setDetail(null);
+        setRowData([]);
+        setRowTotal(0);
+      }
+
+      setDeleteTarget(null);
+      deleteForm.resetFields();
+      toast.success(
+        `${Number(summary.deleted_voters || 0).toLocaleString()} imported voters and ${Number(summary.deleted_imports || 0).toLocaleString()} document record(s) removed from ${summary.barangay_name || "the barangay"}.`,
+      );
+      await loadImports();
+    } catch (error) {
+      if (!unauthorized(error)) {
+        toast.error(extractApiErrorMessage(error, "Deleting barangay import data failed."));
+      }
+    } finally {
+      setDeletingBarangay(false);
+    }
+  };
+
   const importColumns = [
     {
       title: "Barangay / file",
@@ -337,14 +380,23 @@ export default function VoterImportsPage() {
     { title: "Created", dataIndex: "created_at", width: 180, render: fmtDateTime },
     {
       title: "Actions",
-      width: 170,
+      width: 300,
       render: (_, record) => (
-        <Space>
+        <Space wrap>
           <Button icon={<EyeOutlined />} onClick={() => openImport(record.import_id)}>Open</Button>
           {["DRAFT", "READY"].includes(record.status) && (
             <Popconfirm title="Remove this draft import?" onConfirm={() => deleteImport(record.import_id)}>
               <Button danger icon={<DeleteOutlined />} aria-label="Delete draft import" />
             </Popconfirm>
+          )}
+          {canDelete && ["COMMITTED", "SUPERSEDED"].includes(record.status) && (
+            <Button
+              danger
+              icon={<DeleteOutlined />}
+              onClick={() => openBarangayDelete(record)}
+            >
+              Delete barangay
+            </Button>
           )}
         </Space>
       ),
@@ -625,6 +677,73 @@ export default function VoterImportsPage() {
           <Space>
             <Button disabled={committing} onClick={() => setCommitOpen(false)}>{commitComplete ? "Close" : "Cancel"}</Button>
             {!commitComplete && <Button danger type="primary" htmlType="submit" loading={committing}>Commit voter records</Button>}
+          </Space>
+        </Form>
+      </Modal>
+
+      <Modal
+        title={`Delete ${deleteTarget?.barangay_name || "barangay"} import data`}
+        open={Boolean(deleteTarget)}
+        onCancel={() => {
+          if (!deletingBarangay) {
+            setDeleteTarget(null);
+            deleteForm.resetFields();
+          }
+        }}
+        footer={null}
+        width={600}
+        closable={!deletingBarangay}
+        maskClosable={!deletingBarangay}
+        destroyOnClose
+      >
+        <Alert
+          type="error"
+          showIcon
+          message="This permanently removes imported voter data for the barangay"
+          description={
+            <Space direction="vertical" size={4}>
+              <Text>
+                All imported voters and every voter-import history record for <Text strong>{deleteTarget?.barangay_name}</Text> will be deleted.
+              </Text>
+              <Text>
+                The barangay, puroks, precincts, and manually added voters will remain available.
+              </Text>
+            </Space>
+          }
+          style={{ marginBottom: 18 }}
+        />
+
+        <Form form={deleteForm} layout="vertical" onFinish={deleteBarangayImports}>
+          <Form.Item
+            name="confirmation"
+            label={<>Type <Text code>{deleteTarget?.barangay_name}</Text> to confirm</>}
+            rules={[
+              { required: true, message: "Barangay confirmation is required." },
+              {
+                validator: (_, value) => (
+                  String(value || "").trim() === String(deleteTarget?.barangay_name || "").trim()
+                    ? Promise.resolve()
+                    : Promise.reject(new Error(`Type ${deleteTarget?.barangay_name || "the barangay name"} exactly.`))
+                ),
+              },
+            ]}
+          >
+            <Input autoComplete="off" disabled={deletingBarangay} />
+          </Form.Item>
+
+          <Space>
+            <Button
+              disabled={deletingBarangay}
+              onClick={() => {
+                setDeleteTarget(null);
+                deleteForm.resetFields();
+              }}
+            >
+              Cancel
+            </Button>
+            <Button danger type="primary" htmlType="submit" loading={deletingBarangay}>
+              Delete imported voters and documents
+            </Button>
           </Space>
         </Form>
       </Modal>

@@ -7,6 +7,7 @@ import {
   BarChartOutlined,
   EnvironmentOutlined,
   IdcardOutlined,
+  SearchOutlined,
   TeamOutlined,
   WarningOutlined,
 } from "@ant-design/icons";
@@ -34,6 +35,7 @@ export default function AdminDashboard() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [insights, setInsights] = useState(null);
+  const [barangaySearch, setBarangaySearch] = useState("");
   const [purokFilter, setPurokFilter] = useState("all");
   const [purokPage, setPurokPage] = useState(1);
 
@@ -81,8 +83,18 @@ export default function AdminDashboard() {
   }, [router, unauthorized]);
 
   const snapshot = insights?.snapshot || {};
-  const professionSnapshot = Array.isArray(insights?.profession_snapshot) ? insights.profession_snapshot : [];
-  const topBarangays = Array.isArray(insights?.top_barangays) ? insights.top_barangays : [];
+  const barangayDistribution = useMemo(() => (
+    Array.isArray(insights?.barangay_distribution) ? insights.barangay_distribution : []
+  ), [insights]);
+  const barangaySummary = insights?.barangay_summary || {};
+  const filteredBarangays = useMemo(() => {
+    const query = barangaySearch.trim().toLocaleLowerCase();
+    if (!query) return barangayDistribution;
+
+    return barangayDistribution.filter((item) => (
+      String(item.label || "").toLocaleLowerCase().includes(query)
+    ));
+  }, [barangayDistribution, barangaySearch]);
   const purokDistribution = useMemo(() => (
     Array.isArray(insights?.purok_distribution) ? insights.purok_distribution : []
   ), [insights]);
@@ -132,6 +144,9 @@ export default function AdminDashboard() {
   const uniquePuroks = Number(purokSummary.unique_puroks || purokDistribution.length);
   const existingPuroks = Number(purokSummary.existing_puroks || 0);
   const importCreatedPuroks = Number(purokSummary.import_created_puroks || 0);
+  const totalBarangays = Number(barangaySummary.total_barangays ?? barangayDistribution.length);
+  const barangaysWithVoters = Number(barangaySummary.barangays_with_voters ?? 0);
+  const barangaysWithoutVoters = Number(barangaySummary.barangays_without_voters ?? 0);
   const purokChartHeight = Math.max(360, visiblePuroks.length * 34);
 
   const kpis = [
@@ -440,83 +455,76 @@ export default function AdminDashboard() {
               </article>
             </section>
 
-            <section className="grid grid-cols-1 gap-5 xl:grid-cols-2">
-              <article className="dashboard-card">
-                <div className="dashboard-section-heading">
-                  <div>
-                    <p className="dashboard-section-kicker">Area distribution</p>
-                    <h2>Largest barangay voter groups</h2>
-                    <p>Highest voter volumes currently recorded in the masterlist.</p>
-                  </div>
+            <section className="dashboard-card dashboard-barangay-directory">
+              <div className="dashboard-section-heading dashboard-section-heading--directory">
+                <div>
+                  <p className="dashboard-section-kicker">Barangay directory</p>
+                  <h2>All available barangays</h2>
+                  <p>Review every barangay currently registered in the system, including areas without voter records.</p>
                 </div>
+                <EnvironmentOutlined className="dashboard-heading-icon" />
+              </div>
 
-                {topBarangays.length > 0 ? (
-                  <div className="dashboard-ranking-list">
-                    {topBarangays.map((item, index) => (
-                      <div key={`${item.label || "barangay"}-${index}`} className="dashboard-ranking-item">
-                        <div className="dashboard-rank-number">{index + 1}</div>
-                        <div className="dashboard-ranking-content">
-                          <div className="dashboard-ranking-copy">
-                            <div>
-                              <h3>{item.label || "Unspecified barangay"}</h3>
-                              <p>{whole(item.total)} voters</p>
-                            </div>
-                            <strong>{pct(item.share)}</strong>
-                          </div>
-                          <Progress
-                            percent={clamp(item.share)}
-                            showInfo={false}
-                            strokeColor="#0f766e"
-                            trailColor="#edf2f7"
-                            strokeWidth={7}
-                          />
+              <div className="dashboard-directory-summary" aria-label="Barangay directory summary">
+                <span><strong>{whole(totalBarangays)}</strong> available</span>
+                <span className="dashboard-directory-summary--covered">
+                  <strong>{whole(barangaysWithVoters)}</strong> with voters
+                </span>
+                <span className="dashboard-directory-summary--empty">
+                  <strong>{whole(barangaysWithoutVoters)}</strong> without voters
+                </span>
+              </div>
+
+              <div className="dashboard-directory-toolbar">
+                <label className="dashboard-directory-search">
+                  <SearchOutlined />
+                  <input
+                    type="search"
+                    value={barangaySearch}
+                    onChange={(event) => setBarangaySearch(event.target.value)}
+                    placeholder="Search barangay"
+                    aria-label="Search all available barangays"
+                  />
+                </label>
+                <p>
+                  Showing <strong>{whole(filteredBarangays.length)}</strong> of {whole(totalBarangays)} barangays
+                </p>
+              </div>
+
+              {filteredBarangays.length > 0 ? (
+                <div className="dashboard-directory-grid">
+                  {filteredBarangays.map((item) => {
+                    const voterTotal = Number(item.total || 0);
+                    const isInactive = String(item.status || "ACTIVE").toUpperCase() !== "ACTIVE";
+
+                    return (
+                      <article
+                        key={item.barangay_id || item.label}
+                        className={`dashboard-directory-item${voterTotal === 0 ? " is-empty" : ""}`}
+                      >
+                        <div className="dashboard-directory-icon" aria-hidden="true">
+                          <EnvironmentOutlined />
                         </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <Empty description="No barangay distribution data available." />
-                )}
-              </article>
-
-              <article className="dashboard-card">
-                <div className="dashboard-section-heading">
-                  <div>
-                    <p className="dashboard-section-kicker">Demographic insight</p>
-                    <h2>Top recorded occupations</h2>
-                    <p>{whole(snapshot.unique_professions)} occupation labels captured in total.</p>
-                  </div>
-                  <IdcardOutlined className="dashboard-heading-icon" />
+                        <div className="dashboard-directory-copy">
+                          <div className="dashboard-directory-title">
+                            <h3>{item.label || "Unnamed barangay"}</h3>
+                            {isInactive && <span>Inactive</span>}
+                          </div>
+                          <p>Barangay ID #{item.barangay_id}</p>
+                        </div>
+                        <div className="dashboard-directory-count">
+                          <strong>{whole(voterTotal)}</strong>
+                          <span>{voterTotal === 1 ? "voter" : "voters"}</span>
+                        </div>
+                      </article>
+                    );
+                  })}
                 </div>
-
-                {professionSnapshot.length > 0 ? (
-                  <div className="dashboard-ranking-list">
-                    {professionSnapshot.map((item, index) => (
-                      <div key={`${item.label || "occupation"}-${index}`} className="dashboard-ranking-item">
-                        <div className="dashboard-rank-number dashboard-rank-number--blue">{index + 1}</div>
-                        <div className="dashboard-ranking-content">
-                          <div className="dashboard-ranking-copy">
-                            <div>
-                              <h3>{item.label || "Unspecified occupation"}</h3>
-                              <p>{whole(item.total)} voters</p>
-                            </div>
-                            <strong>{pct(item.share)}</strong>
-                          </div>
-                          <Progress
-                            percent={clamp(item.share)}
-                            showInfo={false}
-                            strokeColor="#2563eb"
-                            trailColor="#edf2f7"
-                            strokeWidth={7}
-                          />
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <Empty description="No occupation data available." />
-                )}
-              </article>
+              ) : (
+                <div className="dashboard-directory-empty">
+                  <Empty description={barangaySearch ? "No barangay matches your search." : "No barangays are available."} />
+                </div>
+              )}
             </section>
 
             <section className="dashboard-card">

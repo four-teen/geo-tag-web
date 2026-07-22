@@ -24,6 +24,7 @@ import { extractApiErrorMessage } from "../../utils/api";
 export default function ReligionManagementPage() {
   const router = useRouter();
   const canManageGeo = hasAnyPermission([GEO_PERMISSIONS.MANAGE_GEO]);
+  const canEditGeo = hasAnyPermission([GEO_PERMISSIONS.MANAGE_GEO, GEO_PERMISSIONS.EDIT_GEO]);
   const canDeleteGeo = canManageGeo && canDeleteActions();
 
   const [loading, setLoading] = useState(false);
@@ -153,18 +154,18 @@ export default function ReligionManagementPage() {
         const assignedCount = Number(record?.recipients_count || 0);
         return (
           <Space>
-            <Button icon={<EditOutlined />} disabled={!canManageGeo} onClick={() => openEdit(record)}>
+            <Button icon={<EditOutlined />} disabled={!canEditGeo} onClick={() => openEdit(record)}>
               Edit
             </Button>
-            <Popconfirm
-              title={assignedCount > 0 ? "This religion has assigned voters." : "Delete this religion?"}
-              onConfirm={() => remove(record.religion_id)}
-              disabled={!canDeleteGeo || assignedCount > 0}
-            >
-              <Button icon={<DeleteOutlined />} danger disabled={!canDeleteGeo || assignedCount > 0}>
-                Delete
-              </Button>
-            </Popconfirm>
+            {canDeleteGeo ? (
+              <Popconfirm
+                title={assignedCount > 0 ? "This religion has assigned voters." : "Delete this religion?"}
+                onConfirm={() => remove(record.religion_id)}
+                disabled={assignedCount > 0}
+              >
+                <Button icon={<DeleteOutlined />} danger disabled={assignedCount > 0}>Delete</Button>
+              </Popconfirm>
+            ) : null}
           </Space>
         );
       },
@@ -216,18 +217,18 @@ export default function ReligionManagementPage() {
                     </div>
 
                     <div className="flex flex-col gap-2">
-                      <Button block icon={<EditOutlined />} disabled={!canManageGeo} onClick={() => openEdit(record)}>
+                      <Button block icon={<EditOutlined />} disabled={!canEditGeo} onClick={() => openEdit(record)}>
                         Edit
                       </Button>
-                      <Popconfirm
-                        title={assignedCount > 0 ? "This religion has assigned voters." : "Delete this religion?"}
-                        onConfirm={() => remove(record.religion_id)}
-                        disabled={!canDeleteGeo || assignedCount > 0}
-                      >
-                        <Button block icon={<DeleteOutlined />} danger disabled={!canDeleteGeo || assignedCount > 0}>
-                          Delete
-                        </Button>
-                      </Popconfirm>
+                      {canDeleteGeo ? (
+                        <Popconfirm
+                          title={assignedCount > 0 ? "This religion has assigned voters." : "Delete this religion?"}
+                          onConfirm={() => remove(record.religion_id)}
+                          disabled={assignedCount > 0}
+                        >
+                          <Button block icon={<DeleteOutlined />} danger disabled={assignedCount > 0}>Delete</Button>
+                        </Popconfirm>
+                      ) : null}
                     </div>
                   </div>
                 );
@@ -256,7 +257,7 @@ export default function ReligionManagementPage() {
           form.resetFields();
         }}
         onOk={() => form.submit()}
-        okButtonProps={{ disabled: !canManageGeo, loading }}
+        okButtonProps={{ disabled: editing ? !canEditGeo : !canManageGeo, loading }}
       >
         <Form form={form} layout="vertical" onFinish={submit}>
           <Form.Item

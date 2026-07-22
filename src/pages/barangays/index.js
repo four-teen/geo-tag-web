@@ -31,6 +31,7 @@ import { extractApiErrorMessage } from "../../utils/api";
 export default function BarangayGeoPage() {
   const router = useRouter();
   const canManageGeo = hasAnyPermission([GEO_PERMISSIONS.MANAGE_GEO]);
+  const canEditGeo = hasAnyPermission([GEO_PERMISSIONS.MANAGE_GEO, GEO_PERMISSIONS.EDIT_GEO]);
   const canDeleteGeo = canManageGeo && canDeleteActions();
 
   const [loading, setLoading] = useState(false);
@@ -280,24 +281,20 @@ export default function BarangayGeoPage() {
               icon={<EyeOutlined />}
               onClick={() => openPurokViewer(record)}
             >
-              Add/View Purok ({getPurokCount(record)})
+              {canManageGeo ? "Add/View" : "View"} Purok ({getPurokCount(record)})
             </Button>
             <Button
               icon={<EditOutlined />}
-              disabled={!canManageGeo}
+              disabled={!canEditGeo}
               onClick={() => openBarangayEditor(record)}
             >
               Edit
             </Button>
-            <Popconfirm
-              title="Delete this barangay?"
-              onConfirm={() => removeBarangay(record.barangay_id)}
-              disabled={!canDeleteGeo}
-            >
-              <Button icon={<DeleteOutlined />} danger disabled={!canDeleteGeo}>
-                Delete
-              </Button>
-            </Popconfirm>
+            {canDeleteGeo ? (
+              <Popconfirm title="Delete this barangay?" onConfirm={() => removeBarangay(record.barangay_id)}>
+                <Button icon={<DeleteOutlined />} danger>Delete</Button>
+              </Popconfirm>
+            ) : null}
           </Space>
         ),
       },
@@ -329,7 +326,7 @@ export default function BarangayGeoPage() {
             </Button>
             <Button
               icon={<EditOutlined />}
-              disabled={!canManageGeo}
+              disabled={!canEditGeo}
               onClick={() => {
                 setEditingPurok(record);
                 purokForm.setFieldsValue({
@@ -341,15 +338,11 @@ export default function BarangayGeoPage() {
             >
               Edit
             </Button>
-            <Popconfirm
-              title="Delete this purok?"
-              onConfirm={() => removePurok(record.purok_id)}
-              disabled={!canDeleteGeo}
-            >
-              <Button icon={<DeleteOutlined />} danger disabled={!canDeleteGeo}>
-                Delete
-              </Button>
-            </Popconfirm>
+            {canDeleteGeo ? (
+              <Popconfirm title="Delete this purok?" onConfirm={() => removePurok(record.purok_id)}>
+                <Button icon={<DeleteOutlined />} danger>Delete</Button>
+              </Popconfirm>
+            ) : null}
           </Space>
         ),
       },
@@ -371,7 +364,7 @@ export default function BarangayGeoPage() {
           <Space>
             <Button
               icon={<EditOutlined />}
-              disabled={!canManageGeo}
+              disabled={!canEditGeo}
               onClick={() => {
                 setEditingPrecinct(record);
                 precinctForm.setFieldsValue({
@@ -383,15 +376,11 @@ export default function BarangayGeoPage() {
             >
               Edit
             </Button>
-            <Popconfirm
-              title="Delete this precinct?"
-              onConfirm={() => removePrecinct(record.precinct_id)}
-              disabled={!canDeleteGeo}
-            >
-              <Button icon={<DeleteOutlined />} danger disabled={!canDeleteGeo}>
-                Delete
-              </Button>
-            </Popconfirm>
+            {canDeleteGeo ? (
+              <Popconfirm title="Delete this precinct?" onConfirm={() => removePrecinct(record.precinct_id)}>
+                <Button icon={<DeleteOutlined />} danger>Delete</Button>
+              </Popconfirm>
+            ) : null}
           </Space>
         ),
       },
@@ -448,25 +437,21 @@ export default function BarangayGeoPage() {
 
                   <div className="flex flex-col gap-2">
                     <Button block icon={<EyeOutlined />} onClick={() => openPurokViewer(record)}>
-                      Add/View Purok ({getPurokCount(record)})
+                      {canManageGeo ? "Add/View" : "View"} Purok ({getPurokCount(record)})
                     </Button>
                     <Button
                       block
                       icon={<EditOutlined />}
-                      disabled={!canManageGeo}
+                      disabled={!canEditGeo}
                       onClick={() => openBarangayEditor(record)}
                     >
                       Edit
                     </Button>
-                    <Popconfirm
-                      title="Delete this barangay?"
-                      onConfirm={() => removeBarangay(record.barangay_id)}
-                      disabled={!canDeleteGeo}
-                    >
-                      <Button block icon={<DeleteOutlined />} danger disabled={!canDeleteGeo}>
-                        Delete
-                      </Button>
-                    </Popconfirm>
+                    {canDeleteGeo ? (
+                      <Popconfirm title="Delete this barangay?" onConfirm={() => removeBarangay(record.barangay_id)}>
+                        <Button block icon={<DeleteOutlined />} danger>Delete</Button>
+                      </Popconfirm>
+                    ) : null}
                   </div>
                 </div>
               ))
@@ -494,7 +479,7 @@ export default function BarangayGeoPage() {
           barangayForm.resetFields();
         }}
         onOk={() => barangayForm.submit()}
-        okButtonProps={{ disabled: !canManageGeo }}
+        okButtonProps={{ disabled: editingBarangay ? !canEditGeo : !canManageGeo }}
       >
         <Form form={barangayForm} layout="vertical" onFinish={submitBarangay}>
           <Form.Item
@@ -556,7 +541,7 @@ export default function BarangayGeoPage() {
           purokForm.resetFields();
         }}
         onOk={() => purokForm.submit()}
-        okButtonProps={{ disabled: !canManageGeo }}
+        okButtonProps={{ disabled: editingPurok ? !canEditGeo : !canManageGeo }}
       >
         <Form form={purokForm} layout="vertical" onFinish={submitPurok}>
           <Form.Item label="Barangay">
@@ -621,7 +606,7 @@ export default function BarangayGeoPage() {
           precinctForm.resetFields();
         }}
         onOk={() => precinctForm.submit()}
-        okButtonProps={{ disabled: !canManageGeo }}
+        okButtonProps={{ disabled: editingPrecinct ? !canEditGeo : !canManageGeo }}
       >
         <Form form={precinctForm} layout="vertical" onFinish={submitPrecinct}>
           <Form.Item label="Purok">
