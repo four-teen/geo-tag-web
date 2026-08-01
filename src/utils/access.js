@@ -30,6 +30,7 @@ const SESSION_COOKIE_KEYS = [
 ];
 
 const ROUTE_ROLE_ACCESS = {
+  '/reports': [USER_ROLES.ADMIN],
   "/dashboard": [USER_ROLES.ADMIN],
   "/staff/dashboard": [USER_ROLES.STAFF, USER_ROLES.VOTER_EDITOR],
   "/municipal/dashboard": [USER_ROLES.MUNICIPAL_STAFF],
