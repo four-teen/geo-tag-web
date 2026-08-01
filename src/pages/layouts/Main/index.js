@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import {
   DashboardOutlined,
   EnvironmentOutlined,
+  FileTextOutlined,
   ImportOutlined,
   LogoutOutlined,
   ReadOutlined,
@@ -66,6 +67,12 @@ const baseMenu = [
         key: "/voters",
         icon: <TeamOutlined />,
         allowedRoles: sharedRoles,
+      },
+      {
+        label: 'Reports',
+        key: '/reports',
+        icon: <FileTextOutlined />,
+        allowedRoles: [USER_ROLES.ADMIN],
       },
       {
         label: "Voter Imports",
