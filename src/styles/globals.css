@@ -122,9 +122,9 @@
 
 .report-view-switch {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 0.5rem;
-  max-width: 610px;
+  max-width: 900px;
   padding: 0.3rem;
   border-radius: 13px;
   background: #f1f5f9;
@@ -166,6 +166,17 @@
   min-width: 0;
   flex-direction: column;
   gap: 0.4rem;
+}
+
+.report-scope-reset {
+  align-self: flex-start;
+  min-height: 34px;
+  padding-inline: 0.75rem;
+  border-color: #cbd5e1;
+  border-radius: 8px;
+  color: #0f766e;
+  font-size: 0.75rem;
+  font-weight: 700;
 }
 
 .report-filter > span {
@@ -680,6 +691,241 @@
   text-transform: uppercase;
 }
 
+.purok-voter-report {
+  display: grid;
+  gap: 1rem;
+}
+
+.purok-voter-records {
+  overflow: hidden;
+  border: 1px solid #d9e2ec;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.purok-voter-records table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.purok-voter-records th,
+.purok-voter-records td {
+  padding: 0.62rem 0.8rem;
+  border-bottom: 1px solid #e5eaf0;
+  color: #334155;
+  font-size: 0.78rem;
+  text-align: left;
+}
+
+.purok-voter-records th {
+  color: #475569;
+  font-size: 0.67rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  background: #fff;
+}
+
+.purok-voter-records tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.purok-household-report,
+.purok-household-list {
+  display: grid;
+  gap: 1rem;
+}
+
+.purok-household-card,
+.purok-unlinked-voters {
+  overflow: hidden;
+  border: 1px solid #d9e2ec;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.purok-household-card-heading,
+.purok-unlinked-voters > div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.75rem 0.9rem;
+  border-bottom: 1px solid #d9e2ec;
+  background: #f8fafc;
+}
+
+.purok-household-card-heading > div,
+.purok-unlinked-voters > div {
+  display: grid;
+  gap: 0.12rem;
+}
+
+.purok-household-card-heading span,
+.purok-unlinked-voters span {
+  color: #64748b;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.purok-household-card-heading strong,
+.purok-unlinked-voters strong {
+  color: #0f172a;
+  font-size: 0.88rem;
+}
+
+.purok-household-card-heading small {
+  color: #64748b;
+  font-size: 0.72rem;
+}
+
+.purok-household-members {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.purok-household-members th,
+.purok-household-members td {
+  padding: 0.62rem 0.8rem;
+  border-bottom: 1px solid #e5eaf0;
+  color: #334155;
+  font-size: 0.78rem;
+  text-align: left;
+}
+
+.purok-household-members th {
+  color: #475569;
+  font-size: 0.67rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  background: #fff;
+}
+
+.purok-household-members tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.purok-report-signatures {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 2rem;
+  margin-top: 1.2rem;
+  padding-top: 0.6rem;
+}
+
+.purok-report-signatures div {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.purok-report-signatures span {
+  color: #64748b;
+  font-size: 0.72rem;
+}
+
+.purok-report-signatures strong {
+  display: block;
+  min-height: 1.4rem;
+  border-bottom: 1px solid #334155;
+}
+
+@media (max-width: 720px) {
+  .purok-voter-records table {
+    min-width: 620px;
+  }
+
+  .purok-voter-records {
+    overflow-x: auto;
+  }
+
+  .purok-household-card-heading,
+  .purok-unlinked-voters > div {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .purok-household-members {
+    min-width: 620px;
+  }
+
+  .purok-household-card,
+  .purok-unlinked-voters {
+    overflow-x: auto;
+  }
+}
+
+@media print {
+  .purok-report-group {
+    break-inside: auto;
+    page-break-inside: auto;
+  }
+
+  .purok-report-group + .purok-report-group {
+    break-before: page;
+    page-break-before: always;
+  }
+
+  .purok-voter-records {
+    border-color: #94a3b8;
+    border-radius: 0;
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .purok-voter-records th,
+  .purok-voter-records td {
+    padding: 1.2mm 1.6mm;
+    border-color: #94a3b8;
+    color: #000;
+    font-size: 6.5pt;
+  }
+
+  .purok-household-list {
+    gap: 2mm;
+  }
+
+  .purok-household-card,
+  .purok-unlinked-voters {
+    border-color: #94a3b8;
+    border-radius: 0;
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .purok-household-card-heading,
+  .purok-unlinked-voters > div {
+    padding: 1.8mm 2mm;
+    background: #f1f5f9 !important;
+  }
+
+  .purok-household-card-heading span,
+  .purok-unlinked-voters span,
+  .purok-household-card-heading small,
+  .purok-report-signatures span {
+    color: #000 !important;
+    font-size: 6.5pt;
+  }
+
+  .purok-household-card-heading strong,
+  .purok-unlinked-voters strong {
+    font-size: 8pt;
+  }
+
+  .purok-household-members th,
+  .purok-household-members td {
+    padding: 1.2mm 1.6mm;
+    border-color: #94a3b8;
+    color: #000;
+    font-size: 6.5pt;
+  }
+
+  .purok-report-signatures {
+    gap: 16mm;
+    margin-top: 4mm;
+  }
+}
+
 @media (max-width: 1180px) {
   .report-filter-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -714,15 +960,29 @@
     justify-content: flex-start;
   }
 
-  .report-view-switch,
   .report-filter-grid,
   .report-kpis {
     grid-template-columns: 1fr;
     max-width: none;
   }
 
+  .report-view-switch {
+    grid-template-columns: repeat(3, minmax(145px, 1fr));
+    max-width: none;
+    overflow-x: auto;
+  }
+
+  .report-view-switch button {
+    white-space: nowrap;
+  }
+
   .report-filter-grid > .ant-btn {
     width: 100%;
+  }
+
+  .report-scope-reset {
+    width: 100%;
+    min-height: 38px;
   }
 
   .report-print-meta,
@@ -1583,7 +1843,18 @@ body {
 }
 
 .dashboard-card {
+  min-width: 0;
   padding: 1.5rem;
+}
+
+.dashboard-chart {
+  width: 100%;
+  min-width: 0;
+}
+
+.dashboard-chart .apexcharts-canvas,
+.dashboard-chart .apexcharts-svg {
+  max-width: 100% !important;
 }
 
 .dashboard-card.ant-card {
@@ -2125,6 +2396,10 @@ body {
     padding: 1.1rem;
   }
 
+  .dashboard-chart .apexcharts-legend {
+    justify-content: center !important;
+  }
+
   .dashboard-purok-toolbar {
     align-items: flex-start;
     flex-direction: column;
@@ -2264,6 +2539,10 @@ table, th, td {
   --registry-navy: #0b315d;
   --registry-navy-dark: #071f3c;
   --registry-red: #c82d35;
+  --registry-hero-start: #153e66;
+  --registry-hero-mid: #245b86;
+  --registry-hero-end: #3d78a4;
+  --registry-orange: #ff9a3d;
   --registry-blue-soft: #eef5fb;
   --registry-ink: #152238;
   --registry-muted: #64748b;
@@ -2284,8 +2563,10 @@ table, th, td {
   padding: 1.5rem 1.75rem;
   border-radius: 16px;
   color: #fff;
-  background: linear-gradient(125deg, var(--registry-navy-dark) 0%, var(--registry-navy) 70%, #154f86 100%);
-  box-shadow: 0 12px 28px rgba(7, 31, 60, 0.16);
+  background:
+    radial-gradient(circle at 87% 18%, rgba(255, 154, 61, 0.16), transparent 22%),
+    linear-gradient(125deg, var(--registry-hero-start) 0%, var(--registry-hero-mid) 68%, var(--registry-hero-end) 100%);
+  box-shadow: 0 12px 28px rgba(21, 62, 102, 0.16);
 }
 
 .voter-registry-hero::before {
@@ -2294,7 +2575,7 @@ table, th, td {
   right: 0;
   left: 0;
   height: 4px;
-  background: var(--registry-red);
+  background: linear-gradient(90deg, #ff9331 0%, #ffb15c 16%, rgba(255, 177, 92, 0.36) 34%, rgba(255, 177, 92, 0) 56%);
   content: "";
 }
 
@@ -2404,9 +2685,9 @@ table, th, td {
 }
 
 .voter-registry-add.ant-btn-primary:not(:disabled):hover {
-  border-color: #fff;
+  border-color: var(--registry-orange);
   color: #fff;
-  background: var(--registry-red);
+  background: var(--registry-orange);
 }
 
 .voter-registry-toolbar {
@@ -2696,6 +2977,7 @@ table, th, td {
 
 .voter-record-fact--precinct {
   border-left: 3px solid var(--registry-red) !important;
+  padding-left: 0.7rem !important;
 }
 
 .voter-record-fact--precinct dd {
@@ -2797,6 +3079,214 @@ table, th, td {
   font-weight: 650;
 }
 
+.voter-household {
+  margin-top: 1.1rem;
+  padding: 0.85rem;
+  border: 1px solid #cbd8e5;
+  border-radius: 10px;
+  background: #fff;
+}
+
+.voter-household-heading,
+.voter-household-heading > div,
+.household-editor-member,
+.household-member-actions {
+  display: flex;
+  align-items: center;
+}
+
+.voter-household-heading {
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.7rem;
+}
+
+.voter-household-heading > div {
+  gap: 0.45rem;
+  color: var(--registry-navy);
+  font-size: 0.76rem;
+}
+
+.voter-household-heading .ant-btn {
+  border-color: #b8c7d7;
+  color: var(--registry-navy);
+  font-weight: 650;
+}
+
+.voter-household-members,
+.household-editor-list {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.voter-household-member {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding-top: 0.45rem;
+  border-top: 1px solid #edf1f5;
+  color: #253b52;
+  font-size: 0.73rem;
+}
+
+.voter-household-member:first-child {
+  padding-top: 0;
+  border-top: 0;
+}
+
+.voter-household-member small,
+.voter-household-note,
+.household-editor-member span,
+.household-modal-intro {
+  color: #718096;
+  font-size: 0.68rem;
+}
+
+.voter-household-member small {
+  text-align: right;
+}
+
+.household-modal .ant-modal-body {
+  padding-top: 1rem;
+}
+
+.household-modal-intro {
+  margin: 0 0 0.85rem;
+  line-height: 1.5;
+}
+
+.household-search {
+  width: 100%;
+}
+
+.household-editor-list {
+  margin-top: 1rem;
+}
+
+.household-editor-member {
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.7rem 0.8rem;
+  border: 1px solid #dce5ed;
+  border-radius: 8px;
+  background: #f8fafc;
+}
+
+.household-editor-member > div:first-child {
+  display: grid;
+  min-width: 0;
+}
+
+.household-editor-member strong {
+  color: #173b61;
+  font-size: 0.78rem;
+}
+
+.household-member-actions {
+  gap: 0.35rem;
+}
+
+.household-member-actions .ant-select {
+  min-width: 180px;
+}
+
+.household-head-label {
+  color: #0b714d !important;
+  font-weight: 700;
+}
+
+@media (max-width: 720px) {
+  .household-editor-member,
+  .voter-household-member {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .household-member-actions {
+    width: 100%;
+  }
+
+  .household-member-actions .ant-select {
+    flex: 1;
+    min-width: 0;
+  }
+}
+
+/* Keep every dialog inside the usable mobile viewport. Mobile browser chrome
+   changes the visual viewport as it expands and collapses, so the modal shell
+   owns the height and only its body is allowed to scroll. */
+@media (max-width: 720px) {
+  .ant-modal-root .ant-modal-wrap {
+    overflow-x: hidden;
+    padding: calc(10px + env(safe-area-inset-top)) 10px
+      calc(10px + env(safe-area-inset-bottom));
+  }
+
+  .ant-modal-root .ant-modal {
+    top: 0;
+    width: 100% !important;
+    max-width: 100%;
+    margin: 0;
+    padding-bottom: 0;
+  }
+
+  .ant-modal-root .ant-modal-content {
+    display: flex;
+    flex-direction: column;
+    max-height: calc(100vh - 20px);
+    max-height: calc(
+      100dvh - 20px - env(safe-area-inset-top) - env(safe-area-inset-bottom)
+    );
+    overflow: hidden;
+  }
+
+  .ant-modal-root .ant-modal-header,
+  .ant-modal-root .ant-modal-footer {
+    flex: 0 0 auto;
+  }
+
+  .ant-modal-root .ant-modal-body {
+    min-height: 0;
+    overflow: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .ant-modal-root .ant-modal-footer {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 8px;
+  }
+
+  .ant-modal-root .ant-modal-footer .ant-btn + .ant-btn {
+    margin-inline-start: 0;
+  }
+}
+
+@media (max-width: 480px) {
+  .ant-modal-root .ant-modal-footer .ant-btn {
+    flex: 1 1 120px;
+  }
+
+  .ant-modal-root .modal-inline-actions {
+    display: flex;
+    width: 100%;
+  }
+
+  .ant-modal-root .modal-inline-actions > .ant-space-item {
+    flex: 1 1 140px;
+    min-width: 0;
+  }
+
+  .ant-modal-root .modal-inline-actions .ant-btn {
+    width: 100%;
+    height: auto;
+    min-height: 32px;
+    white-space: normal;
+  }
+}
+
 /* Voter create/edit modal */
 .voter-form-modal-wrap.ant-modal-centered {
   padding: 20px;
@@ -2808,23 +3298,28 @@ table, th, td {
   padding-bottom: 0;
 }
 
-.voter-form-modal .ant-modal-content {
+.voter-form-modal-wrap .voter-form-modal .ant-modal-content {
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100vh - 40px);
+  max-height: calc(100dvh - 40px);
   overflow: hidden;
-  padding: 0;
+  padding: 0 !important;
   border: 1px solid #9fb2c8;
   border-radius: 18px;
   box-shadow: 0 24px 70px rgba(4, 23, 45, 0.28);
 }
 
-.voter-form-modal .ant-modal-header {
+.voter-form-modal-wrap .voter-form-modal .ant-modal-header {
+  flex: 0 0 auto;
   margin: 0;
   padding: 1.05rem 1.4rem;
-  border-bottom: 3px solid #b51f2e;
-  background: linear-gradient(135deg, #071f3c 0%, #0d3a67 100%);
+  border-bottom: 3px solid #b51f2e !important;
+  background: linear-gradient(135deg, #071f3c 0%, #0d3a67 100%) !important;
 }
 
-.voter-form-modal .ant-modal-title {
-  color: #fff;
+.voter-form-modal-wrap .voter-form-modal .ant-modal-title {
+  color: #fff !important;
 }
 
 .voter-form-modal-title {
@@ -2876,6 +3371,8 @@ table, th, td {
 }
 
 .voter-form-modal .ant-modal-body {
+  flex: 1 1 auto;
+  min-height: 0;
   max-height: min(660px, calc(100vh - 210px));
   overflow-y: auto;
   padding: 1.2rem 1.35rem;
@@ -2899,6 +3396,7 @@ table, th, td {
 }
 
 .voter-form-modal .ant-modal-footer {
+  flex: 0 0 auto;
   margin: 0;
   padding: 0.9rem 1.35rem;
   border-top: 1px solid #dce5ee;
@@ -3022,15 +3520,33 @@ table, th, td {
 
 @media (max-width: 720px) {
   .voter-form-modal-wrap.ant-modal-centered {
-    padding: 10px;
+    padding: calc(10px + env(safe-area-inset-top)) 10px
+      calc(10px + env(safe-area-inset-bottom));
   }
 
   .voter-form-modal-wrap .voter-form-modal {
     max-width: calc(100vw - 20px);
   }
 
+  .voter-form-modal-wrap .voter-form-modal .ant-modal-header {
+    border-bottom-color: #b51f2e;
+    background: linear-gradient(135deg, #071f3c 0%, #0d3a67 100%) !important;
+  }
+
+  .voter-form-modal-wrap .voter-form-modal .ant-modal-title {
+    color: #fff !important;
+  }
+
+  .voter-form-modal-wrap .voter-form-modal .ant-modal-content {
+    max-height: calc(100vh - 20px);
+    max-height: calc(
+      100dvh - 20px - env(safe-area-inset-top) - env(safe-area-inset-bottom)
+    );
+  }
+
   .voter-form-modal .ant-modal-body {
-    max-height: calc(100vh - 184px);
+    flex: 1 1 auto;
+    max-height: none;
     padding: 0.9rem;
   }
 

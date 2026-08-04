@@ -673,7 +673,7 @@ export default function VoterImportsPage() {
           >
             <Input autoComplete="off" disabled={committing || commitComplete} />
           </Form.Item>
-          <Space>
+          <Space className='modal-inline-actions' wrap>
             <Button disabled={committing} onClick={() => setCommitOpen(false)}>{commitComplete ? "Close" : "Cancel"}</Button>
             {!commitComplete && <Button danger type="primary" htmlType="submit" loading={committing}>Commit voter records</Button>}
           </Space>
@@ -730,7 +730,7 @@ export default function VoterImportsPage() {
             <Input autoComplete="off" disabled={deletingBarangay} />
           </Form.Item>
 
-          <Space>
+          <Space className='modal-inline-actions' wrap>
             <Button
               disabled={deletingBarangay}
               onClick={() => {

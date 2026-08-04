@@ -117,7 +117,7 @@ export default function Home() {
               </Button>
             </Form>
 
-            <p className="login-version">Version 0.5.0.4</p>
+            <p className="login-version">Version 0.8</p>
           </section>
         </main>
 

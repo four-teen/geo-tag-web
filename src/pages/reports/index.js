@@ -18,7 +18,7 @@ import Cookies from 'js-cookie';
 import { toast } from 'react-toastify';
 import Layout from '../layouts';
 import { Auth } from '../api/auth';
-import { GetVoterReport, GetVoterReportRecords } from '../api/reports';
+import { GetPurokVoterReport, GetVoterReport, GetVoterReportRecords } from '../api/reports';
 import { extractApiErrorMessage } from '../../utils/api';
 
 const numberFormatter = new Intl.NumberFormat('en-PH');
@@ -37,6 +37,103 @@ const generatedLabel = (value) => {
 };
 
 const asText = (value, fallback = '-') => String(value || '').trim() || fallback;
+const escapePrintHtml = (value, fallback = '-') => asText(value, fallback).replace(/[&<>"']/g, (character) => ({
+  '&': '&amp;',
+  '<': '&lt;',
+  '>': '&gt;',
+  '"': '&quot;',
+  "'": '&#39;',
+}[character]));
+const buildPurokPrintDocument = ({ groups, barangayName, statusLabel, generatedAt }) => {
+  const pages = groups.map((group, groupIndex) => {
+    const voters = Array.isArray(group?.voters) ? group.voters : [];
+    const rows = voters.map((voter, voterIndex) => [
+      '<tr>',
+      '<td class="cell-number">' + (voterIndex + 1) + '</td>',
+      '<td>' + escapePrintHtml(voter?.full_name, 'No name') + '</td>',
+      '<td>' + escapePrintHtml(voter?.voters_id_number, 'No voter ID') + '</td>',
+      '<td>' + escapePrintHtml(voter?.sex, '-') + '</td>',
+      '<td>' + escapePrintHtml(voter?.precinct_no, 'Unassigned') + '</td>',
+      '<td>' + escapePrintHtml(voter?.status, 'INACTIVE') + '</td>',
+      '</tr>',
+    ].join('')).join('');
+
+    return [
+      '<section class="purok-print-page' + (groupIndex > 0 ? ' purok-print-page--next' : '') + '">',
+      '<header class="document-header">',
+      '<p class="document-kicker">Administrator Reporting Center</p>',
+      '<h1>Purok Voter Masterlist</h1>',
+      '<div class="document-subtitle">Voter record listing</div>',
+      '</header>',
+      '<section class="document-meta">',
+      '<div><span>Barangay</span><strong>' + escapePrintHtml(barangayName, 'Unassigned') + '</strong></div>',
+      '<div><span>Status filter</span><strong>' + escapePrintHtml(statusLabel, 'All voter statuses') + '</strong></div>',
+      '<div><span>Generated</span><strong>' + escapePrintHtml(generatedAt, 'Not generated') + '</strong></div>',
+      '</section>',
+      '<section class="purok-heading">',
+      '<div><p>Purok / Sitio</p><h2>' + escapePrintHtml(group?.purok_name, 'Unassigned') + '</h2></div>',
+      '<dl class="document-summary">',
+      '<div><dt>Total voters</dt><dd>' + whole(group?.total_voters) + '</dd></div>',
+      '<div><dt>Active</dt><dd>' + whole(group?.active_voters) + '</dd></div>',
+      '<div><dt>Inactive</dt><dd>' + whole(group?.inactive_voters) + '</dd></div>',
+      '</dl>',
+      '</section>',
+      '<table><thead><tr><th>No.</th><th>Voter name</th><th>Voter ID</th><th>Sex</th><th>Precinct</th><th>Status</th></tr></thead>',
+      '<tbody>' + rows + '</tbody></table>',
+      '<footer class="signature-row">',
+      '<div><span>Prepared by</span><strong class="signature-line"></strong></div>',
+      '<div><span>Verified by</span><strong class="signature-line"></strong></div>',
+      '</footer>',
+      '</section>',
+    ].join('');
+  }).join('');
+
+  return [
+    '<!doctype html>',
+    '<html lang="en"><head><meta charset="utf-8" />',
+    '<title>Purok Voter Masterlist</title>',
+    '<style>',
+    '@page { size: A4 portrait; margin: 13mm 12mm 16mm; }',
+    '* { box-sizing: border-box; }',
+    'html, body { margin: 0; padding: 0; color: #111827; background: #fff; font-family: Arial, Helvetica, sans-serif; }',
+    'body { font-size: 9pt; }',
+    '.purok-print-page { min-height: 268mm; }',
+    '.purok-print-page--next { break-before: page; page-break-before: always; }',
+    '.document-header { border-bottom: 2px solid #0f766e; padding-bottom: 4mm; text-align: center; }',
+    '.document-kicker { margin: 0 0 1.5mm; color: #0f766e; font-size: 8pt; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; }',
+    'h1 { margin: 0; color: #0f172a; font-size: 17pt; line-height: 1.1; }',
+    '.document-subtitle { margin-top: 1.5mm; color: #475569; font-size: 8.5pt; }',
+    '.document-meta { display: grid; grid-template-columns: 1.35fr 1.35fr 1fr; gap: 3mm; margin: 5mm 0 4mm; padding: 3mm 0; border-top: 1px solid #cbd5e1; border-bottom: 1px solid #cbd5e1; }',
+    '.document-meta div, .document-summary div { display: grid; gap: 0.8mm; }',
+    '.document-meta span, .document-summary dt { color: #64748b; font-size: 7pt; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; }',
+    '.document-meta strong { color: #0f172a; font-size: 9pt; }',
+    '.purok-heading { display: flex; align-items: flex-end; justify-content: space-between; gap: 5mm; margin: 0 0 3mm; }',
+    '.purok-heading p { margin: 0 0 1mm; color: #0f766e; font-size: 7pt; font-weight: 700; letter-spacing: 0.09em; text-transform: uppercase; }',
+    'h2 { margin: 0; color: #0f172a; font-size: 12pt; }',
+    '.document-summary { display: grid; grid-template-columns: repeat(3, minmax(18mm, 1fr)); gap: 2mm; margin: 0; }',
+    '.document-summary div { padding: 1.6mm 2mm; border: 1px solid #cbd5e1; text-align: center; }',
+    '.document-summary dd { margin: 0; color: #0f172a; font-size: 10pt; font-weight: 700; }',
+    'table { width: 100%; border-collapse: collapse; table-layout: fixed; }',
+    'thead { display: table-header-group; }',
+    'th, td { padding: 2.1mm 1.8mm; border: 1px solid #94a3b8; font-size: 8pt; text-align: left; vertical-align: top; word-break: break-word; }',
+    'th { color: #0f172a; background: #f1f5f9; font-size: 7pt; letter-spacing: 0.04em; text-transform: uppercase; }',
+    'tr { break-inside: avoid; page-break-inside: avoid; }',
+    'th:nth-child(1), td:nth-child(1) { width: 7%; text-align: center; }',
+    'th:nth-child(2), td:nth-child(2) { width: 33%; }',
+    'th:nth-child(3), td:nth-child(3) { width: 20%; }',
+    'th:nth-child(4), td:nth-child(4) { width: 10%; }',
+    'th:nth-child(5), td:nth-child(5) { width: 14%; }',
+    'th:nth-child(6), td:nth-child(6) { width: 16%; }',
+    '.cell-number { font-weight: 700; }',
+    '.signature-row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20mm; margin-top: 13mm; }',
+    '.signature-row div { display: grid; gap: 2mm; }',
+    '.signature-row span { color: #475569; font-size: 8pt; }',
+    '.signature-line { height: 6mm; border-bottom: 1px solid #0f172a; }',
+    '</style></head><body>',
+    pages,
+    '</body></html>',
+  ].join('');
+};
 const reportGroupKey = (group) => `${Number(group?.barangay_id || 0)}:${group?.barangay_name || ''}`;
 const fileSafeName = (value) => String(value || 'barangay')
   .normalize('NFKD')
@@ -46,6 +143,8 @@ const fileSafeName = (value) => String(value || 'barangay')
 const REPORT_PROGRESS_LIMIT = 94;
 const REPORT_PROGRESS_COMPLETE_DELAY = 220;
 const VIEW_PROGRESS_INTERVAL = 105;
+const ALL_BARANGAYS_VALUE = '__ALL_BARANGAYS__';
+const ALL_PUROKS_VALUE = '__ALL_PUROKS__';
 
 export default function ReportsPage() {
   const router = useRouter();
@@ -65,9 +164,12 @@ export default function ReportsPage() {
   const [consolidatedPage, setConsolidatedPage] = useState(1);
   const [consolidatedPageSize, setConsolidatedPageSize] = useState(2);
   const [barangayId, setBarangayId] = useState();
+  const [purokId, setPurokId] = useState();
   const [status, setStatus] = useState('ALL');
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
+  const [purokReport, setPurokReport] = useState(null);
+  const [purokLoading, setPurokLoading] = useState(false);
   const progressTimerRef = useRef(null);
   const viewProgressTimerRef = useRef(null);
   const viewCompletionTimerRef = useRef(null);
@@ -163,6 +265,30 @@ export default function ReportsPage() {
     }
   }, [barangayId, clearProgressTimer, clearViewProgressTimers, debouncedSearch, status, unauthorized]);
 
+  const loadPurokReport = useCallback(async () => {
+    if (!Number(barangayId)) {
+      setPurokReport(null);
+      return;
+    }
+
+    setPurokLoading(true);
+    try {
+      const response = await GetPurokVoterReport({
+        barangay_id: Number(barangayId),
+        purok_id: purokId,
+        status,
+      });
+      setPurokReport(response?.data || null);
+    } catch (error) {
+      setPurokReport(null);
+      if (!unauthorized(error)) {
+        toast.error(extractApiErrorMessage(error, 'Failed to generate the Purok voter report.'));
+      }
+    } finally {
+      setPurokLoading(false);
+    }
+  }, [barangayId, purokId, status, unauthorized]);
+
   const changeReportView = useCallback((nextView) => {
     setView(nextView);
     if (loading) return;
@@ -221,6 +347,15 @@ export default function ReportsPage() {
   }, [ready, loadReport]);
 
   useEffect(() => {
+    if (!ready || view !== 'purok') return;
+    loadPurokReport();
+  }, [ready, view, loadPurokReport]);
+
+  useEffect(() => {
+    setPurokId(undefined);
+  }, [barangayId]);
+
+  useEffect(() => {
     const timer = window.setTimeout(() => setDebouncedSearch(search.trim()), 350);
     return () => window.clearTimeout(timer);
   }, [search]);
@@ -234,6 +369,25 @@ export default function ReportsPage() {
     () => (Array.isArray(report?.barangay_options) ? report.barangay_options : []),
     [report]
   );
+  const purokOptions = useMemo(
+    () => (Array.isArray(purokReport?.purok_options) ? purokReport.purok_options : []),
+    [purokReport]
+  );
+  const displayedPurokGroups = useMemo(
+    () => (Array.isArray(purokReport?.puroks) ? purokReport.puroks : []),
+    [purokReport]
+  );
+  const displayedPurokTotals = useMemo(() => displayedPurokGroups.reduce((current, group) => ({
+    puroks: current.puroks + 1,
+    total_voters: current.total_voters + Number(group.total_voters || 0),
+    active_voters: current.active_voters + Number(group.active_voters || 0),
+    inactive_voters: current.inactive_voters + Number(group.inactive_voters || 0),
+  }), {
+    puroks: 0,
+    total_voters: 0,
+    active_voters: 0,
+    inactive_voters: 0,
+  }), [displayedPurokGroups]);
   const consolidatedGroups = useMemo(
     () => summaries.filter((row) => Number(row.filtered_records || 0) > 0),
     [summaries]
@@ -421,28 +575,40 @@ export default function ReportsPage() {
   ];
 
   const selectedBarangay = options.find((item) => Number(item.barangay_id) === Number(barangayId));
+  const selectedPurok = purokOptions.find((item) => Number(item.purok_id) === Number(purokId));
   const scopeLabel = selectedBarangay?.barangay_name || 'All barangays';
+  const purokScopeLabel = (purokReport?.barangay?.barangay_name || scopeLabel) + ' · ' + (selectedPurok?.purok_name || 'All Puroks');
   const statusLabel = status === 'ALL' ? 'All voter statuses' : `${status} voters only`;
-  const loadingViewLabel = view === 'summary' ? 'per barangay report' : 'consolidated report';
+  const loadingViewLabel = view === 'summary'
+    ? 'per barangay report'
+    : view === 'purok' ? 'Purok voter report' : 'consolidated report';
   const isGroupLoading = view === 'consolidated' && !printing
     && displayedConsolidatedGroups.some((group) => {
       const state = groupData[reportGroupKey(group)];
       return !state || state.loading;
     });
-  const isReportLoading = loading || viewLoading || isGroupLoading;
+  const isPurokLoading = view === 'purok' && purokLoading;
+  const isReportLoading = loading || viewLoading || isGroupLoading || isPurokLoading;
   const displayedProgress = isGroupLoading ? Math.min(96, loadingProgress) : loadingProgress;
   const printedBarangaySummary = printBarangayData
     ? summaries.find((row) => Number(row.barangay_id) === Number(printBarangayData.barangay_id))
     : null;
-  const displayedTotals = printing && printBarangayData ? {
+  const displayedTotals = view === 'purok' ? {
+    total: displayedPurokTotals.total_voters,
+    active: displayedPurokTotals.active_voters,
+    inactive: displayedPurokTotals.inactive_voters,
+    barangays: displayedPurokTotals.puroks,
+  } : printing && printBarangayData ? {
     total: printedBarangaySummary?.total,
     active: printedBarangaySummary?.active,
     inactive: printedBarangaySummary?.inactive,
     barangays: 1,
   } : totals;
-  const displayedScopeLabel = printing && printBarangayData
-    ? printBarangayData.barangay_name
-    : scopeLabel;
+  const displayedScopeLabel = view === 'purok'
+    ? purokScopeLabel
+    : printing && printBarangayData
+      ? printBarangayData.barangay_name
+      : scopeLabel;
   const displayedMatchingRecords = printing && printBarangayData
     ? printBarangayData.records.length
     : totals.filtered_records;
@@ -548,6 +714,34 @@ export default function ReportsPage() {
     }
   };
 
+  const printPurokReport = (purok) => {
+    const groups = purok ? [purok] : displayedPurokGroups;
+    if (groups.length === 0) {
+      toast.error('No Purok voter records are available to print.');
+      return;
+    }
+
+    const printWindow = window.open('', '_blank', 'popup=yes,width=900,height=1100');
+    if (!printWindow) {
+      toast.error('Allow pop-ups to print the Purok voter report.');
+      return;
+    }
+
+    printWindow.document.open();
+    printWindow.document.write(buildPurokPrintDocument({
+      groups,
+      barangayName: purokReport?.barangay?.barangay_name,
+      statusLabel,
+      generatedAt: generatedLabel(purokReport?.generated_at),
+    }));
+    printWindow.document.close();
+    printWindow.onafterprint = () => printWindow.close();
+    window.setTimeout(() => {
+      printWindow.focus();
+      printWindow.print();
+    }, 200);
+  };
+
   return (
     <Layout>
       <Head><title>Administrator Reports</title></Head>
@@ -562,8 +756,14 @@ export default function ReportsPage() {
             </div>
           </div>
           <div className='report-actions report-no-print'>
-            <Button icon={<PrinterOutlined />} onClick={printSummary} disabled={!report || view !== 'summary'}>Print summary</Button>
-            <Button type='primary' icon={<DownloadOutlined />} onClick={exportWorkbook} disabled={!report}>Export summary</Button>
+            {view === 'purok' ? (
+              <Button type='primary' icon={<PrinterOutlined />} onClick={() => printPurokReport(null)} disabled={purokLoading || displayedPurokGroups.length === 0}>Print All Puroks</Button>
+            ) : (
+              <>
+                <Button icon={<PrinterOutlined />} onClick={printSummary} disabled={!report || view !== 'summary'}>Print summary</Button>
+                <Button type='primary' icon={<DownloadOutlined />} onClick={exportWorkbook} disabled={!report}>Export summary</Button>
+              </>
+            )}
           </div>
         </section>
 
@@ -587,26 +787,64 @@ export default function ReportsPage() {
               <TeamOutlined />
               <span>Consolidated Report</span>
             </button>
+            <button
+              type='button'
+              className={view === 'purok' ? 'is-active' : ''}
+              aria-pressed={view === 'purok'}
+              onClick={() => changeReportView('purok')}
+            >
+              <EnvironmentOutlined />
+              <span>Purok Voter Report</span>
+            </button>
           </div>
 
           <div className='report-filter-grid'>
-            <label className='report-filter'>
+            <div className='report-filter report-filter--scope'>
               <span>Barangay scope</span>
               <Select
                 allowClear
                 showSearch
+                aria-label='Select barangay report scope'
                 optionFilterProp='label'
                 placeholder='All barangays'
-                value={barangayId}
-                options={options.map((item) => ({
-                  value: Number(item.barangay_id),
-                  label: item.barangay_name,
-                }))}
-                onChange={setBarangayId}
+                value={barangayId ?? ALL_BARANGAYS_VALUE}
+                options={[
+                  { value: ALL_BARANGAYS_VALUE, label: 'All barangays' },
+                  ...options.map((item) => ({
+                    value: Number(item.barangay_id),
+                    label: item.barangay_name,
+                  })),
+                ]}
+                onChange={(value) => {
+                  setBarangayId(value === ALL_BARANGAYS_VALUE ? undefined : value);
+                  setPurokId(undefined);
+                }}
               />
-            </label>
+              {barangayId !== undefined ? (
+                <Button className='report-scope-reset' onClick={() => setBarangayId(undefined)}>
+                  Show all barangays
+                </Button>
+              ) : null}
+            </div>
+            {view === 'purok' ? (
+              <label className='report-filter'>
+                <span>Purok scope</span>
+                <Select
+                  disabled={!Number(barangayId)}
+                  value={purokId ?? ALL_PUROKS_VALUE}
+                  options={[
+                    { value: ALL_PUROKS_VALUE, label: 'All Puroks' },
+                    ...purokOptions.map((item) => ({
+                      value: Number(item.purok_id),
+                      label: item.purok_name,
+                    })),
+                  ]}
+                  onChange={(value) => setPurokId(value === ALL_PUROKS_VALUE ? undefined : value)}
+                />
+              </label>
+            ) : null}
             <label className='report-filter'>
-              <span>Consolidated voter status</span>
+              <span>{view === 'purok' ? 'Purok voter status' : 'Consolidated voter status'}</span>
               <Select
                 value={status}
                 onChange={setStatus}
@@ -617,17 +855,19 @@ export default function ReportsPage() {
                 ]}
               />
             </label>
-            <label className='report-filter report-filter--search'>
-              <span>Find in consolidated report</span>
-              <Input
-                allowClear
-                prefix={<SearchOutlined />}
-                placeholder='Name, voter ID, purok or precinct'
-                value={search}
-                onChange={(event) => setSearch(event.target.value)}
-              />
-            </label>
-            <Button icon={<ReloadOutlined />} loading={loading} onClick={loadReport}>Refresh</Button>
+            {view !== 'purok' ? (
+              <label className='report-filter report-filter--search'>
+                <span>Find in consolidated report</span>
+                <Input
+                  allowClear
+                  prefix={<SearchOutlined />}
+                  placeholder='Name, voter ID, purok or precinct'
+                  value={search}
+                  onChange={(event) => setSearch(event.target.value)}
+                />
+              </label>
+            ) : null}
+            <Button icon={<ReloadOutlined />} loading={loading || purokLoading} onClick={view === 'purok' ? loadPurokReport : loadReport}>Refresh</Button>
           </div>
         </section>
 
@@ -636,13 +876,15 @@ export default function ReportsPage() {
             <strong>
               {view === 'summary'
                 ? 'Active and Inactive Voters per Barangay'
+                : view === 'purok'
+                  ? 'Purok Voter Report'
                 : printBarangayData
                   ? `Consolidated Voter Report - ${printBarangayData.barangay_name}`
                   : 'Consolidated Voter Report'}
             </strong>
             <span>{displayedScopeLabel} · {view === 'summary' ? 'All voter statuses' : statusLabel}</span>
           </div>
-          <span>Generated {generatedLabel(report?.generated_at)}</span>
+          <span>Generated {generatedLabel(view === 'purok' ? purokReport?.generated_at : report?.generated_at)}</span>
         </section>
 
         <section className='report-kpis' aria-label='Report totals'>
@@ -660,7 +902,7 @@ export default function ReportsPage() {
           </Card>
           <Card className='report-kpi report-kpi--barangays'>
             <EnvironmentOutlined />
-            <div><span>Barangays covered</span><strong>{whole(displayedTotals.barangays)}</strong></div>
+            <div><span>{view === 'purok' ? 'Puroks covered' : 'Barangays covered'}</span><strong>{whole(displayedTotals.barangays)}</strong></div>
           </Card>
         </section>
 
@@ -696,6 +938,82 @@ export default function ReportsPage() {
               </div>
             </Card>
           </div>
+        ) : view === 'purok' ? (
+          !Number(barangayId) ? (
+            <Card className='report-empty'>
+              <Empty description='Select one barangay to prepare its Purok voter report.' />
+            </Card>
+          ) : !purokReport ? (
+            <Card className='report-empty'>
+              <Empty description='No Purok voter report is available for this barangay.' />
+            </Card>
+          ) : (
+            <section className='purok-voter-report'>
+              <div className='report-section-heading report-section-heading--standalone'>
+                <div>
+                  <p>Printable voter-record listing</p>
+                  <h2>Voter records organized by registered Purok</h2>
+                  <span>Each voter is counted under the Purok saved on that voter record. Household membership does not affect this report.</span>
+                </div>
+              </div>
+              {displayedPurokGroups.length > 0 ? displayedPurokGroups.map((group) => (
+                <Card className='report-barangay-group purok-report-group' key={group.purok_id}>
+                  <div className='report-group-heading'>
+                    <div>
+                      <span>Purok / Sitio</span>
+                      <h3>{asText(group.purok_name, 'Unassigned')}</h3>
+                    </div>
+                    <div className='report-group-tools'>
+                      <div className='report-group-actions report-no-print'>
+                        <Button size='small' icon={<PrinterOutlined />} onClick={() => printPurokReport(group)}>Print Purok</Button>
+                      </div>
+                      <dl>
+                        <div><dt>Voter records</dt><dd>{whole(group.total_voters)}</dd></div>
+                        <div><dt>Active</dt><dd>{whole(group.active_voters)}</dd></div>
+                        <div><dt>Inactive</dt><dd>{whole(group.inactive_voters)}</dd></div>
+                      </dl>
+                    </div>
+                  </div>
+
+                  <div className='purok-voter-records'>
+                    <table>
+                      <thead>
+                        <tr>
+                          <th>#</th>
+                          <th>Voter</th>
+                          <th>Voter ID</th>
+                          <th>Sex</th>
+                          <th>Precinct</th>
+                          <th>Status</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {group.voters.map((voter, index) => (
+                          <tr key={voter.recipient_id}>
+                            <td>{index + 1}</td>
+                            <td>{asText(voter.full_name, 'No name')}</td>
+                            <td>{asText(voter.voters_id_number, 'No voter ID')}</td>
+                            <td>{asText(voter.sex, '-')}</td>
+                            <td>{asText(voter.precinct_no, 'Unassigned')}</td>
+                            <td><Tag color={voter.status === 'ACTIVE' ? 'green' : 'red'}>{voter.status}</Tag></td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  <div className='purok-report-signatures'>
+                    <div><span>Prepared by</span><strong /></div>
+                    <div><span>Verified by</span><strong /></div>
+                  </div>
+                </Card>
+              )) : (
+                <Card className='report-empty'>
+                  <Empty description='No voter records match the selected Purok and status.' />
+                </Card>
+              )}
+            </section>
+          )
         ) : report ? (
           view === 'summary' ? (
             <Card className='report-table-card'>

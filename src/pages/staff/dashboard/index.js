@@ -116,6 +116,8 @@ export default function StaffDashboard() {
       type: "line",
       toolbar: { show: false },
       zoom: { enabled: false },
+      redrawOnParentResize: true,
+      redrawOnWindowResize: true,
       fontFamily: "ui-sans-serif, system-ui, sans-serif",
     },
     colors: ["#0f172a", "#ea580c", "#0891b2", "#16a34a"],
@@ -163,6 +165,27 @@ export default function StaffDashboard() {
         formatter: (value) => `${whole(value)} voters`,
       },
     },
+    responsive: [
+      {
+        breakpoint: 640,
+        options: {
+          legend: { position: 'bottom', horizontalAlign: 'center', fontSize: '11px' },
+          stroke: { width: [2, 2, 2, 2] },
+          markers: { size: 2, hover: { size: 4 } },
+          xaxis: {
+            labels: {
+              rotate: -40,
+              hideOverlappingLabels: true,
+              trim: true,
+              style: { colors: '#64748b', fontSize: '10px' },
+            },
+          },
+          yaxis: {
+            labels: { style: { colors: '#64748b', fontSize: '10px' } },
+          },
+        },
+      },
+    ],
   }), [chartData]);
 
   return (
@@ -229,12 +252,15 @@ export default function StaffDashboard() {
                   </div>
 
                   {Array.isArray(chartData?.series) && chartData.series.length > 0 ? (
-                    <ApexChart
+                    <div className='dashboard-chart'>
+                      <ApexChart
+                        width='100%'
                       type="line"
                       height={380}
                       options={chartOptions}
                       series={chartData.series}
-                    />
+                      />
+                    </div>
                   ) : (
                     <Empty description="No evaluation chart data available." />
                   )}
