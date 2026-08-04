@@ -37,3 +37,15 @@ export async function deleteRecipient(id) {
     headers: authHeaders(),
   });
 }
+
+export async function getVoterHousehold(id) {
+  return axios.get(buildApiUrl(`/bow/voters/${id}/household`), {
+    headers: authHeaders(),
+  });
+}
+
+export async function updateVoterHousehold(id, members) {
+  return axios.put(buildApiUrl(`/bow/voters/${id}/household`), { members }, {
+    headers: authHeaders(),
+  });
+}

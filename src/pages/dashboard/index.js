@@ -211,8 +211,8 @@ export default function AdminDashboard() {
       toolbar: { show: false },
       zoom: { enabled: false },
       animations: { enabled: false },
-      redrawOnParentResize: false,
-      redrawOnWindowResize: false,
+      redrawOnParentResize: true,
+      redrawOnWindowResize: true,
       fontFamily: "Inter, ui-sans-serif, system-ui, sans-serif",
     },
     colors: ["#0f766e", "#2563eb", "#d97706", "#7c3aed"],
@@ -261,6 +261,27 @@ export default function AdminDashboard() {
         formatter: (value) => `${whole(value)} voters`,
       },
     },
+    responsive: [
+      {
+        breakpoint: 640,
+        options: {
+          legend: { position: 'bottom', horizontalAlign: 'center', fontSize: '11px' },
+          stroke: { width: [2, 2, 2, 2] },
+          markers: { size: 2, hover: { size: 4 } },
+          xaxis: {
+            labels: {
+              rotate: -40,
+              hideOverlappingLabels: true,
+              trim: true,
+              style: { colors: '#64748b', fontSize: '10px' },
+            },
+          },
+          yaxis: {
+            labels: { style: { colors: '#64748b', fontSize: '10px' } },
+          },
+        },
+      },
+    ],
   }), [chartData]);
 
   const purokChartOptions = useMemo(() => ({
@@ -270,8 +291,8 @@ export default function AdminDashboard() {
       toolbar: { show: false },
       zoom: { enabled: false },
       animations: { enabled: false },
-      redrawOnParentResize: false,
-      redrawOnWindowResize: false,
+      redrawOnParentResize: true,
+      redrawOnWindowResize: true,
       fontFamily: "Inter, ui-sans-serif, system-ui, sans-serif",
     },
     colors: ["#0f766e", "#d97706"],
@@ -330,6 +351,27 @@ export default function AdminDashboard() {
         formatter: (value) => `${whole(value)} voters`,
       },
     },
+    responsive: [
+      {
+        breakpoint: 640,
+        options: {
+          dataLabels: { enabled: false },
+          legend: { position: 'bottom', horizontalAlign: 'center', fontSize: '11px' },
+          plotOptions: { bar: { barHeight: '58%' } },
+          xaxis: {
+            title: { text: undefined },
+            labels: { style: { colors: '#64748b', fontSize: '10px' } },
+          },
+          yaxis: {
+            labels: {
+              maxWidth: 112,
+              style: { colors: '#475569', fontSize: '10px' },
+            },
+          },
+          grid: { padding: { left: 0, right: 4 } },
+        },
+      },
+    ],
   }), [purokChartData]);
 
   return (
@@ -588,12 +630,15 @@ export default function AdminDashboard() {
               </div>
 
               {visiblePuroks.length > 0 ? (
-                <ApexChart
+                <div className='dashboard-chart'>
+                  <ApexChart
+                    width='100%'
                   type="bar"
                   height={purokChartHeight}
                   options={purokChartOptions}
                   series={purokChartData.series}
-                />
+                  />
+                </div>
               ) : (
                 <Empty description="No puroks match this classification." />
               )}
@@ -610,12 +655,15 @@ export default function AdminDashboard() {
               </div>
 
               {Array.isArray(chartData?.series) && chartData.series.length > 0 ? (
-                <ApexChart
+                <div className='dashboard-chart'>
+                  <ApexChart
+                    width='100%'
                   type="line"
                   height={380}
                   options={chartOptions}
                   series={chartData.series}
-                />
+                  />
+                </div>
               ) : (
                 <Empty description="No evaluation chart data available." />
               )}

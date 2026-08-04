@@ -25,7 +25,9 @@ import {
   PlusOutlined,
   QrcodeOutlined,
   SearchOutlined,
+  TeamOutlined,
   UpOutlined,
+  UserAddOutlined,
   UploadOutlined,
 } from "@ant-design/icons";
 import QRCode from "react-qr-code";
@@ -36,7 +38,7 @@ import { Auth } from "../api/auth";
 import { GetBarangays } from "../api/barangay";
 import { GetPuroksByBarangay } from "../api/purok";
 import { GetPrecinctsByPurok } from "../api/precinct";
-import { GetRecipients, postRecipient, updateRecipient, deleteRecipient } from "../api/recipients";
+import { GetRecipients, postRecipient, updateRecipient, deleteRecipient, getVoterHousehold, updateVoterHousehold } from "../api/recipients";
 import { GetReligions } from "../api/religion";
 import { GetTribes } from "../api/tribe";
 import { canDeleteActions, GEO_PERMISSIONS, hasAnyPermission } from "../../utils/access";
@@ -46,6 +48,17 @@ const PAGE_SIZE = 20;
 const MAX_PHOTO_BYTES = 2 * 1024 * 1024;
 const NONE_OPTION_VALUE = "__NONE__";
 const BLANK_OPTION = { value: NONE_OPTION_VALUE, label: "Blank" };
+const HOUSEHOLD_RELATIONSHIPS = [
+  "Spouse / Partner",
+  "Child",
+  "Parent",
+  "Sibling",
+  "Grandchild",
+  "Grandparent",
+  "Relative",
+  "Boarder / Tenant",
+  "Other household member",
+];
 
 const toFilterLocationId = (value) => {
   if (value === NONE_OPTION_VALUE) return 0;
@@ -169,6 +182,14 @@ export default function VotersPage() {
   const [photoPreview, setPhotoPreview] = useState("");
   const [removePhoto, setRemovePhoto] = useState(false);
   const [expanded, setExpanded] = useState({});
+  const [households, setHouseholds] = useState({});
+  const [loadedHouseholds, setLoadedHouseholds] = useState({});
+  const [loadingHouseholds, setLoadingHouseholds] = useState({});
+  const [householdModalOpen, setHouseholdModalOpen] = useState(false);
+  const [householdVoter, setHouseholdVoter] = useState(null);
+  const [householdMembers, setHouseholdMembers] = useState([]);
+  const [householdCandidates, setHouseholdCandidates] = useState([]);
+  const [savingHousehold, setSavingHousehold] = useState(false);
 
   const sentinelRef = useRef(null);
   const queryRef = useRef("");
@@ -544,6 +565,119 @@ export default function VotersPage() {
     }
   };
 
+  const loadHousehold = useCallback(async (id) => {
+    setLoadingHouseholds((current) => ({ ...current, [id]: true }));
+    try {
+      const response = await getVoterHousehold(id);
+      const household = response?.data?.data || null;
+      setHouseholds((current) => ({ ...current, [id]: household }));
+      setLoadedHouseholds((current) => ({ ...current, [id]: true }));
+      return household;
+    } catch (error) {
+      if (!unauthorized(error)) toast.error(extractApiErrorMessage(error, "Failed to load household."));
+      return null;
+    } finally {
+      setLoadingHouseholds((current) => ({ ...current, [id]: false }));
+    }
+  }, [unauthorized]);
+
+  const toggleVoterDetails = async (record) => {
+    const isOpening = !expanded[record.recipient_id];
+    setExpanded((current) => ({ ...current, [record.recipient_id]: isOpening }));
+    if (isOpening && !loadedHouseholds[record.recipient_id]) {
+      await loadHousehold(record.recipient_id);
+    }
+  };
+
+  const openHouseholdManager = async (record) => {
+    const household = loadedHouseholds[record.recipient_id]
+      ? households[record.recipient_id]
+      : await loadHousehold(record.recipient_id);
+    const members = household?.members?.length
+      ? household.members
+      : [{ ...record, relationship_to_head: "Household head", is_head: true }];
+
+    setHouseholdVoter(record);
+    setHouseholdMembers(members);
+    setHouseholdCandidates([]);
+    setHouseholdModalOpen(true);
+  };
+
+  const searchHouseholdVoters = async (value) => {
+    const keyword = String(value || "").trim();
+    if (keyword.length < 2) {
+      setHouseholdCandidates([]);
+      return;
+    }
+
+    try {
+      const response = await GetRecipients({ search: keyword, page: 1, per_page: 20 });
+      const memberIds = new Set(householdMembers.map((member) => Number(member.recipient_id)));
+      const candidates = (response?.data?.data || []).filter((candidate) => !memberIds.has(Number(candidate.recipient_id)));
+      setHouseholdCandidates(candidates);
+    } catch (error) {
+      if (!unauthorized(error)) toast.error(extractApiErrorMessage(error, "Failed to search voter records."));
+    }
+  };
+
+  const addHouseholdMember = (recipientId) => {
+    const candidate = householdCandidates.find((item) => Number(item.recipient_id) === Number(recipientId));
+    if (!candidate) return;
+    setHouseholdMembers((current) => [...current, {
+      ...candidate,
+      relationship_to_head: "Relative",
+      is_head: false,
+    }]);
+    setHouseholdCandidates([]);
+  };
+
+  const updateHouseholdRelationship = (recipientId, relationship) => {
+    setHouseholdMembers((current) => current.map((member) => (
+      Number(member.recipient_id) === Number(recipientId)
+        ? { ...member, relationship_to_head: relationship }
+        : member
+    )));
+  };
+
+  const removeHouseholdMember = (recipientId) => {
+    setHouseholdMembers((current) => current.filter((member) => Number(member.recipient_id) !== Number(recipientId)));
+  };
+
+  const saveHousehold = async () => {
+    if (!householdVoter) return;
+    try {
+      setSavingHousehold(true);
+      const response = await updateVoterHousehold(householdVoter.recipient_id, householdMembers.map((member) => ({
+        recipient_id: member.recipient_id,
+        relationship_to_head: member.relationship_to_head,
+      })));
+      const household = response?.data?.data || null;
+      const affectedIds = new Set([
+        ...householdMembers.map((member) => Number(member.recipient_id)),
+        ...(household?.members || []).map((member) => Number(member.recipient_id)),
+      ]);
+
+      setHouseholds((current) => {
+        const next = { ...current };
+        affectedIds.forEach((id) => {
+          next[id] = household?.members?.some((member) => Number(member.recipient_id) === id) ? household : null;
+        });
+        return next;
+      });
+      setLoadedHouseholds((current) => {
+        const next = { ...current };
+        affectedIds.forEach((id) => { next[id] = true; });
+        return next;
+      });
+      setHouseholdModalOpen(false);
+      toast.success("Household updated.");
+    } catch (error) {
+      if (!unauthorized(error)) toast.error(extractApiErrorMessage(error, "Saving household failed."));
+    } finally {
+      setSavingHousehold(false);
+    }
+  };
+
   const downloadVoterQr = (record) => {
     const qrElement = document.getElementById(`voter-qr-${record.recipient_id}`);
     if (!qrElement) {
@@ -710,6 +844,8 @@ export default function VotersPage() {
               const barangayLabel = getBarangayLabel(r);
               const purokLabel = getPurokLabel(r);
               const qrValue = voterQrValue(r, barangayLabel, purokLabel);
+              const household = households[r.recipient_id];
+              const householdLoaded = !!loadedHouseholds[r.recipient_id];
               return (
                 <article className={`voter-record${open ? " voter-record--expanded" : ""}`} key={r.recipient_id}>
                   <div className="voter-record-accent" />
@@ -731,7 +867,7 @@ export default function VotersPage() {
                       </div>
                     </div>
                     <div className="voter-record-actions">
-                      <Button aria-expanded={open} icon={open ? <UpOutlined /> : <DownOutlined />} onClick={() => setExpanded((p) => ({ ...p, [r.recipient_id]: !p[r.recipient_id] }))}>{open ? "Less details" : "View details"}</Button>
+                      <Button aria-expanded={open} icon={open ? <UpOutlined /> : <DownOutlined />} onClick={() => toggleVoterDetails(r)}>{open ? "Less details" : "View details"}</Button>
                        <Button icon={<EditOutlined />} disabled={!canEditGeo} onClick={() => openEdit(r)}>Edit</Button>
                        {canDeleteGeo ? (
                          <Popconfirm title="Delete this voter?" description="This action cannot be undone." onConfirm={() => remove(r.recipient_id)}>
@@ -768,6 +904,26 @@ export default function VotersPage() {
                             <div><dt>Created</dt><dd>{displayValue(fmtDateTime(r?.created_at))}</dd></div>
                             <div><dt>Last updated</dt><dd>{displayValue(fmtDateTime(r?.updated_at))}</dd></div>
                           </dl>
+                          <section className="voter-household" aria-label={"Household for " + fullName(r)}>
+                            <div className="voter-household-heading">
+                              <div><TeamOutlined /><strong>Household</strong></div>
+                              {canEditGeo ? <Button size="small" icon={<UserAddOutlined />} onClick={() => openHouseholdManager(r)}>{household?.members?.length ? "Manage household" : "Create household"}</Button> : null}
+                            </div>
+                            {loadingHouseholds[r.recipient_id] || !householdLoaded ? (
+                              <span className="voter-household-note">Loading household members...</span>
+                            ) : household?.members?.length ? (
+                              <div className="voter-household-members">
+                                {household.members.map((member) => (
+                                  <div className="voter-household-member" key={member.recipient_id}>
+                                    <span>{fullName(member)}</span>
+                                    <small>{member.relationship_to_head}</small>
+                                  </div>
+                                ))}
+                              </div>
+                            ) : (
+                              <span className="voter-household-note">No household assigned yet.</span>
+                            )}
+                          </section>
                         </div>
                         <aside className="voter-record-qr" aria-label={`Downloadable QR for ${fullName(r)}`}>
                           <div className="voter-record-qr-heading"><QrcodeOutlined /><span>Registry QR</span></div>
@@ -911,6 +1067,56 @@ export default function VotersPage() {
             </Form.Item>
           </section>
         </Form>
+      </Modal>
+
+      <Modal
+        title={householdVoter && households[householdVoter.recipient_id]?.household_id ? "Manage household" : "Create household"}
+        open={householdModalOpen}
+        width={720}
+        centered
+        className="household-modal"
+        okText="Save household"
+        confirmLoading={savingHousehold}
+        onOk={saveHousehold}
+        onCancel={() => { if (!savingHousehold) setHouseholdModalOpen(false); }}
+      >
+        <p className="household-modal-intro">Only voters already in the registry can be added. Each relationship is recorded against the household head.</p>
+        <Select
+          showSearch
+          filterOption={false}
+          value={undefined}
+          onSearch={searchHouseholdVoters}
+          onSelect={addHouseholdMember}
+          placeholder="Search voter name or ID to add a member"
+          notFoundContent="Type at least two characters to search voter records"
+          options={householdCandidates.map((candidate) => ({
+            value: candidate.recipient_id,
+            label: fullName(candidate) + " · Record #" + String(candidate.recipient_id).padStart(6, "0"),
+          }))}
+          className="household-search"
+        />
+        <div className="household-editor-list">
+          {householdMembers.map((member) => (
+            <div className="household-editor-member" key={member.recipient_id}>
+              <div>
+                <strong>{fullName(member)}</strong>
+                <span>Voter record #{String(member.recipient_id).padStart(6, "0")}</span>
+              </div>
+              {member.is_head ? (
+                <span className="household-head-label">Household head</span>
+              ) : (
+                <div className="household-member-actions">
+                  <Select
+                    value={member.relationship_to_head || "Other household member"}
+                    options={HOUSEHOLD_RELATIONSHIPS.map((relationship) => ({ value: relationship, label: relationship }))}
+                    onChange={(relationship) => updateHouseholdRelationship(member.recipient_id, relationship)}
+                  />
+                  <Button danger type="text" onClick={() => removeHouseholdMember(member.recipient_id)}>Remove</Button>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
       </Modal>
 
     </Layout>

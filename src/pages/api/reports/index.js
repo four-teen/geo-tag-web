@@ -29,3 +29,17 @@ export async function GetVoterReportRecords(params = {}, config = {}) {
     },
   });
 }
+
+export async function GetPurokVoterReport(params = {}, config = {}) {
+  return axios.get(buildApiUrl('/bow/reports/voters/puroks'), {
+    ...config,
+    headers: {
+      ...config.headers,
+      Authorization: `Bearer ${Cookies.get('accessToken')}`,
+    },
+    params: {
+      ...config.params,
+      ...params,
+    },
+  });
+}
