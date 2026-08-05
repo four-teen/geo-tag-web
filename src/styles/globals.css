@@ -3015,7 +3015,7 @@ table, th, td {
 
 .voter-record-details-content {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 190px;
+  grid-template-columns: minmax(0, 1fr) 210px;
   gap: 1.25rem;
   align-items: start;
 }
@@ -3031,6 +3031,128 @@ table, th, td {
 
 .voter-record-detail--wide {
   grid-column: span 2;
+}
+
+.voter-record-sidecar {
+  display: grid;
+  gap: 0.8rem;
+}
+
+.voter-record-house-photo,
+.voter-record-location {
+  overflow: hidden;
+  padding: 0.7rem;
+  border: 1px solid #cbd8e5;
+  border-radius: 10px;
+  background: #fff;
+  box-shadow: 0 4px 12px rgba(11, 49, 93, 0.06);
+}
+
+.voter-record-sidecar-heading {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-bottom: 0.6rem;
+  color: var(--registry-navy);
+  font-size: 0.68rem;
+  font-weight: 780;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.voter-record-house-photo > img {
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 10;
+  border-radius: 7px;
+  object-fit: cover;
+  background: #e7edf3;
+}
+
+.voter-record-house-photo__empty {
+  display: flex;
+  min-height: 112px;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 0.45rem;
+  padding: 0.75rem;
+  border: 1px dashed #c6d2df;
+  border-radius: 7px;
+  color: #7b8b9d;
+  background: #f7f9fc;
+  font-size: 0.66rem;
+  text-align: center;
+}
+
+.voter-record-house-photo__empty .anticon {
+  color: #9aabba;
+  font-size: 1.35rem;
+}
+
+.voter-record-location dl {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0.45rem;
+  margin: 0;
+}
+
+.voter-record-location dl > div {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.6rem;
+  padding-bottom: 0.35rem;
+  border-bottom: 1px solid #e7edf3;
+}
+
+.voter-record-location dt {
+  color: #708196;
+  font-size: 0.62rem;
+}
+
+.voter-record-location dd {
+  margin: 0;
+  color: #173957;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.64rem;
+  font-weight: 700;
+}
+
+.voter-record-location > p {
+  margin: 0.55rem 0;
+  color: #718096;
+  font-size: 0.6rem;
+  line-height: 1.45;
+}
+
+.voter-record-location .ant-btn {
+  border-color: #b8c7d7;
+  border-radius: 7px;
+  color: var(--registry-navy);
+  font-size: 0.7rem;
+  font-weight: 650;
+}
+
+.voter-record-location__empty {
+  display: flex;
+  min-height: 82px;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 0.4rem;
+  padding: 0.65rem;
+  border: 1px dashed #c6d2df;
+  border-radius: 7px;
+  color: #7b8b9d;
+  background: #f7f9fc;
+  font-size: 0.66rem;
+  text-align: center;
+}
+
+.voter-record-location__empty .anticon {
+  color: #9aabba;
+  font-size: 1.25rem;
 }
 
 .voter-record-qr {
@@ -3495,9 +3617,18 @@ table, th, td {
 }
 
 .voter-form .ant-input,
+.voter-form .ant-input-number,
 .voter-form .ant-select-selector {
   min-height: 38px;
   border-radius: 7px;
+}
+
+.voter-form .ant-input-number {
+  width: 100%;
+}
+
+.voter-form .ant-input-number-input {
+  height: 36px;
 }
 
 .voter-form .ant-select-single {
@@ -3510,6 +3641,212 @@ table, th, td {
 
 .voter-form-section--picture {
   padding-bottom: 0.2rem;
+}
+
+.voter-form-location-card {
+  padding: 0.9rem 0.95rem;
+  border: 1px solid #d6e1ec;
+  border-radius: 10px;
+  background: #f8fafc;
+}
+
+.voter-form-location-toolbar,
+.voter-form-location-toolbar > div,
+.voter-form-location-actions,
+.voter-form-location-meta {
+  display: flex;
+  align-items: center;
+}
+
+.voter-form-location-toolbar {
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.8rem;
+}
+
+.voter-form-location-toolbar > div:first-child {
+  min-width: 0;
+  gap: 0.65rem;
+}
+
+.voter-form-location-toolbar > div:first-child > .anticon {
+  display: inline-flex;
+  width: 34px;
+  height: 34px;
+  flex: 0 0 34px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  color: #0b714d;
+  background: #e4f5ed;
+  font-size: 1rem;
+}
+
+.voter-form-location-toolbar > div:first-child > div {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 0.08rem;
+}
+
+.voter-form-location-toolbar strong {
+  color: #163553;
+  font-size: 0.77rem;
+}
+
+.voter-form-location-toolbar span {
+  color: #728397;
+  font-size: 0.66rem;
+  line-height: 1.4;
+}
+
+.voter-form-location-actions {
+  flex: 0 0 auto;
+  gap: 0.5rem;
+}
+
+.voter-form-location-actions .ant-btn-primary {
+  background: #0b714d;
+}
+
+.voter-form-location-actions .ant-btn-primary:hover,
+.voter-form-location-actions .ant-btn-primary:focus {
+  background: #085a3e;
+}
+
+.voter-form-location-inputs .ant-form-item {
+  margin-bottom: 0.55rem;
+}
+
+.voter-form-location-meta {
+  min-height: 1.3rem;
+  justify-content: space-between;
+  gap: 0.75rem;
+  color: #718096;
+  font-size: 0.65rem;
+}
+
+.voter-form-location-meta strong {
+  color: #0b714d;
+  font-size: 0.65rem;
+}
+
+.voter-form-location-privacy {
+  margin: 0.45rem 0 0;
+  color: #7a899a;
+  font-size: 0.62rem;
+  line-height: 1.5;
+}
+
+.voter-form-photo-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+  padding-bottom: 0.9rem;
+}
+
+.voter-form-photo-card {
+  min-width: 0;
+  padding: 0.9rem;
+  border: 1px solid #d9e3ed;
+  border-radius: 10px;
+  background: #f8fafc;
+}
+
+.voter-form-photo-card__heading {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.65rem;
+  margin-bottom: 0.8rem;
+}
+
+.voter-form-photo-card__heading > .anticon {
+  display: inline-flex;
+  width: 34px;
+  height: 34px;
+  flex: 0 0 34px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  color: #0d3a67;
+  background: #e6eef7;
+  font-size: 1rem;
+}
+
+.voter-form-photo-card__heading > div {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+
+.voter-form-photo-card__heading strong {
+  color: #163553;
+  font-size: 0.77rem;
+  font-weight: 720;
+}
+
+.voter-form-photo-card__heading span {
+  color: #728397;
+  font-size: 0.66rem;
+  line-height: 1.4;
+}
+
+.voter-form-photo-card .ant-form-item {
+  margin-bottom: 0.75rem;
+}
+
+.voter-form-photo-card .ant-upload-wrapper,
+.voter-form-photo-card .ant-upload-select,
+.voter-form-photo-card .ant-upload-select .ant-btn {
+  display: block;
+  width: 100%;
+}
+
+.voter-form-photo-preview,
+.voter-form-photo-empty {
+  display: grid;
+  min-height: 190px;
+  align-content: center;
+  justify-items: center;
+  gap: 0.65rem;
+  padding: 0.75rem;
+  border: 1px dashed #c9d5e1;
+  border-radius: 9px;
+  background: #fff;
+}
+
+.voter-form-photo-preview img {
+  display: block;
+  border: 1px solid #d4dee8;
+  border-radius: 8px;
+  object-fit: cover;
+  background: #edf2f7;
+}
+
+.voter-form-photo-preview--profile img {
+  width: 116px;
+  height: 136px;
+}
+
+.voter-form-photo-preview--house img {
+  width: min(100%, 280px);
+  aspect-ratio: 16 / 10;
+}
+
+.voter-form-photo-preview .ant-btn {
+  width: min(100%, 220px);
+}
+
+.voter-form-photo-empty {
+  color: #8190a0;
+  font-size: 0.68rem;
+  text-align: center;
+}
+
+.voter-form-photo-empty > .anticon {
+  color: #a0afbd;
+  font-size: 1.65rem;
 }
 
 @media (max-width: 980px) {
@@ -3557,13 +3894,28 @@ table, th, td {
   .voter-form-grid--one,
   .voter-form-grid--two,
   .voter-form-grid--names,
-  .voter-form-grid--four {
+  .voter-form-grid--four,
+  .voter-form-photo-grid {
     grid-template-columns: minmax(0, 1fr);
     max-width: none;
   }
 
   .voter-form-section__heading span {
     display: none;
+  }
+
+  .voter-form-location-toolbar,
+  .voter-form-location-meta {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .voter-form-location-actions {
+    width: 100%;
+  }
+
+  .voter-form-location-actions .ant-btn:first-child {
+    flex: 1;
   }
 }
 
@@ -3616,10 +3968,14 @@ table, th, td {
     padding: 1rem;
   }
 
-  .voter-registry-hero,
-  .voter-record-header {
+  .voter-registry-hero {
     align-items: stretch;
     flex-direction: column;
+  }
+
+  .voter-record-header {
+    align-items: flex-start;
+    flex-direction: row;
   }
 
   .voter-registry-hero-actions {
@@ -3631,7 +3987,15 @@ table, th, td {
   }
 
   .voter-record-actions {
+    align-items: stretch;
+    flex: 0 0 clamp(118px, 26vw, 132px);
+    flex-direction: column;
+    flex-wrap: nowrap;
     justify-content: flex-start;
+  }
+
+  .voter-record-actions .ant-btn {
+    width: 100%;
   }
 
   .voter-record-facts,
