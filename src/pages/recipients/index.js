@@ -7,6 +7,7 @@ import {
   Empty,
   Form,
   Input,
+  InputNumber,
   Modal,
   Popconfirm,
   Select,
@@ -20,7 +21,9 @@ import {
   DownOutlined,
   DownloadOutlined,
   EditOutlined,
+  EnvironmentOutlined,
   FilterOutlined,
+  HomeOutlined,
   IdcardOutlined,
   PlusOutlined,
   QrcodeOutlined,
@@ -84,7 +87,7 @@ const toAssignedLocationId = (...values) => {
 
 const normalize = (v) => String(v || "").trim().toLowerCase();
 const isActive = (v) => ["active", "verified", "pending"].includes(normalize(v));
-const statusLabel = (v) => (isActive(v) ? "ACTIVE" : "INACTIVE");
+const statusLabel = (v) => (isActive(v) ? "KAPAMILYA" : "NON KAPAMILYA");
 const formStatus = (v) => (isActive(v) ? "ACTIVE" : "INACTIVE");
 const toUpperText = (v) => String(v || "").trim().toUpperCase();
 const toLowerText = (v) => String(v || "").trim().toLowerCase();
@@ -126,14 +129,38 @@ const voterQrValue = (record, barangay, purok) => [
   `Sex: ${displayValue(toProperText(record?.sex))}`,
 ].join("\n");
 
-const imageUrl = (r) => {
-  const absolute = String(r?.profile_picture_url || "").trim();
+const storedImageUrl = (r, field) => {
+  const absolute = String(r?.[`${field}_url`] || "").trim();
   if (absolute) return absolute;
-  const raw = String(r?.profile_picture || "").trim();
+  const raw = String(r?.[field] || "").trim();
   if (!raw) return "";
   if (/^(https?:\/\/|data:)/i.test(raw)) return raw;
   const root = String(getApiBaseUrl() || "").replace(/\/api\/?$/i, "").replace(/\/+$/, "");
   return root ? `${root}${raw.startsWith("/") ? raw : `/${raw}`}` : raw;
+};
+const imageUrl = (r) => storedImageUrl(r, "profile_picture");
+const houseImageUrl = (r) => storedImageUrl(r, "house_picture");
+const coordinateValue = (value) => {
+  if (value === undefined || value === null || String(value).trim() === "") return null;
+  const normalized = Number(value);
+  return Number.isFinite(normalized) ? normalized : null;
+};
+const hasCoordinateInput = (value) => coordinateValue(value) !== null;
+const formatCoordinate = (value) => {
+  const normalized = coordinateValue(value);
+  return normalized === null ? "Not recorded" : normalized.toFixed(7);
+};
+const formatLocationAccuracy = (value) => {
+  const normalized = coordinateValue(value);
+  if (normalized === null) return "";
+  if (normalized >= 1000) return `±${(normalized / 1000).toFixed(1)} km`;
+  return `±${Math.round(normalized)} m`;
+};
+const voterMapUrl = (latitude, longitude) => {
+  const lat = coordinateValue(latitude);
+  const lng = coordinateValue(longitude);
+  if (lat === null || lng === null) return "";
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${lat},${lng}`)}`;
 };
 
 const sortToApi = (opt) => {
@@ -147,6 +174,8 @@ export default function VotersPage() {
   const router = useRouter();
   const [form] = Form.useForm();
   const formBarangayId = Form.useWatch("barangay_id", form);
+  const formLatitude = Form.useWatch("latitude", form);
+  const formLongitude = Form.useWatch("longitude", form);
   const canManageGeo = hasAnyPermission([GEO_PERMISSIONS.MANAGE_GEO]);
   const canEditGeo = hasAnyPermission([GEO_PERMISSIONS.MANAGE_GEO, GEO_PERMISSIONS.EDIT_GEO]);
   const canDeleteGeo = canManageGeo && canDeleteActions();
@@ -181,6 +210,11 @@ export default function VotersPage() {
   const [selectedPhoto, setSelectedPhoto] = useState(null);
   const [photoPreview, setPhotoPreview] = useState("");
   const [removePhoto, setRemovePhoto] = useState(false);
+  const [selectedHousePhoto, setSelectedHousePhoto] = useState(null);
+  const [housePhotoPreview, setHousePhotoPreview] = useState("");
+  const [removeHousePhoto, setRemoveHousePhoto] = useState(false);
+  const [locating, setLocating] = useState(false);
+  const [locationMeta, setLocationMeta] = useState({ accuracy: null, capturedAt: null });
   const [expanded, setExpanded] = useState({});
   const [households, setHouseholds] = useState({});
   const [loadedHouseholds, setLoadedHouseholds] = useState({});
@@ -193,6 +227,7 @@ export default function VotersPage() {
 
   const sentinelRef = useRef(null);
   const queryRef = useRef("");
+  const geolocationRequestRef = useRef(0);
 
   useEffect(() => {
     if (router.pathname === "/recipients") {
@@ -448,6 +483,7 @@ export default function VotersPage() {
   }, [ready, hasMore, loading, loadingMore, page, fetchPage]);
 
   const resetModal = () => {
+    geolocationRequestRef.current += 1;
     form.resetFields();
     form.setFieldsValue({ religion: NONE_OPTION_VALUE, status: "ACTIVE", tribe_id: NONE_OPTION_VALUE });
     setFormPuroks([]);
@@ -455,6 +491,11 @@ export default function VotersPage() {
     setSelectedPhoto(null);
     setPhotoPreview("");
     setRemovePhoto(false);
+    setSelectedHousePhoto(null);
+    setHousePhotoPreview("");
+    setRemoveHousePhoto(false);
+    setLocating(false);
+    setLocationMeta({ accuracy: null, capturedAt: null });
   };
 
   const openCreate = () => { resetModal(); setModalOpen(true); };
@@ -463,6 +504,11 @@ export default function VotersPage() {
     resetModal();
     setEditing(r);
     setPhotoPreview(imageUrl(r));
+    setHousePhotoPreview(houseImageUrl(r));
+    setLocationMeta({
+      accuracy: coordinateValue(r?.location_accuracy_meters),
+      capturedAt: r?.location_captured_at || null,
+    });
     const bId = toAssignedLocationId(r?.barangay_id, r?.barangay);
     const pId = toAssignedLocationId(r?.purok_id, r?.purok);
     form.setFieldsValue({
@@ -482,6 +528,8 @@ export default function VotersPage() {
       tribe_id: r?.tribe_id || NONE_OPTION_VALUE,
       sex: normalize(r?.sex) === "female" ? "FEMALE" : normalize(r?.sex) === "male" ? "MALE" : undefined,
       status: formStatus(r?.status),
+      latitude: coordinateValue(r?.latitude),
+      longitude: coordinateValue(r?.longitude),
     });
     setModalOpen(true);
     if (bId) {
@@ -507,6 +555,85 @@ export default function VotersPage() {
 
   const clearPhoto = () => { setSelectedPhoto(null); setPhotoPreview(""); setRemovePhoto(true); };
 
+  const onHousePhotoPick = async (file) => {
+    if (!file.type?.startsWith("image/")) return Upload.LIST_IGNORE;
+    if (file.size > MAX_PHOTO_BYTES) {
+      toast.error("Image is too large. Maximum size is 2MB.");
+      return Upload.LIST_IGNORE;
+    }
+    setSelectedHousePhoto(file);
+    setRemoveHousePhoto(false);
+    const reader = new FileReader();
+    reader.onload = () => setHousePhotoPreview(String(reader.result || ""));
+    reader.readAsDataURL(file);
+    return false;
+  };
+
+  const clearHousePhoto = () => { setSelectedHousePhoto(null); setHousePhotoPreview(""); setRemoveHousePhoto(true); };
+
+  const clearLocationMetadata = () => {
+    setLocationMeta({ accuracy: null, capturedAt: null });
+  };
+
+  const clearResidenceLocation = () => {
+    geolocationRequestRef.current += 1;
+    setLocating(false);
+    form.setFieldsValue({ latitude: null, longitude: null });
+    form.setFields([
+      { name: "latitude", errors: [] },
+      { name: "longitude", errors: [] },
+    ]);
+    clearLocationMetadata();
+  };
+
+  const captureCurrentLocation = () => {
+    if (typeof navigator === "undefined" || !navigator.geolocation) {
+      toast.error("Location services are not supported by this browser.");
+      return;
+    }
+
+    if (typeof window !== "undefined" && !window.isSecureContext) {
+      toast.error("Current location requires HTTPS or localhost.");
+      return;
+    }
+
+    const requestId = geolocationRequestRef.current + 1;
+    geolocationRequestRef.current = requestId;
+    setLocating(true);
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        if (geolocationRequestRef.current !== requestId) return;
+        const latitude = Number(position.coords.latitude.toFixed(7));
+        const longitude = Number(position.coords.longitude.toFixed(7));
+        const accuracy = Number.isFinite(position.coords.accuracy)
+          ? Number(Math.max(0, position.coords.accuracy).toFixed(2))
+          : null;
+        const capturedAt = new Date(position.timestamp || Date.now()).toISOString();
+
+        form.setFieldsValue({ latitude, longitude });
+        form.setFields([
+          { name: "latitude", errors: [] },
+          { name: "longitude", errors: [] },
+        ]);
+        setLocationMeta({ accuracy, capturedAt });
+        setLocating(false);
+        toast.success(`Residence location captured${accuracy === null ? "" : ` (${formatLocationAccuracy(accuracy)})`}.`);
+      },
+      (error) => {
+        if (geolocationRequestRef.current !== requestId) return;
+        setLocating(false);
+        const messages = {
+          1: "Location permission was denied. Allow location access and try again.",
+          2: "Your current location could not be determined.",
+          3: "Getting the current location timed out. Please try again.",
+        };
+        toast.error(messages[error?.code] || "Unable to get the current location.");
+      },
+      { enableHighAccuracy: true, timeout: 20000, maximumAge: 0 },
+    );
+  };
+
   const submit = async (vals) => {
     const selectedBarangayId = toFilterLocationId(vals?.barangay_id);
     const selectedPurokId = toFilterLocationId(vals?.purok_id);
@@ -522,6 +649,28 @@ export default function VotersPage() {
     if (Number.isFinite(selectedTribeId) && selectedTribeId > 0) {
       fd.append("tribe_id", String(selectedTribeId));
     }
+    const latitude = coordinateValue(vals?.latitude);
+    const longitude = coordinateValue(vals?.longitude);
+    if ((latitude === null) !== (longitude === null)) {
+      const message = "Latitude and longitude must be entered together.";
+      form.setFields([
+        { name: "latitude", errors: [message] },
+        { name: "longitude", errors: [message] },
+      ]);
+      return;
+    }
+    if (latitude !== null && longitude !== null) {
+      fd.append("latitude", String(latitude));
+      fd.append("longitude", String(longitude));
+      if (coordinateValue(locationMeta.accuracy) !== null) {
+        fd.append("location_accuracy_meters", String(locationMeta.accuracy));
+      }
+      if (locationMeta.capturedAt) {
+        fd.append("location_captured_at", locationMeta.capturedAt);
+      }
+    } else if (editing?.recipient_id && voterMapUrl(editing?.latitude, editing?.longitude)) {
+      fd.append("remove_location", "1");
+    }
     if (selectedBarangayId === undefined) {
       form.setFields([{ name: "barangay_id", errors: ["Barangay is required."] }]);
       return;
@@ -533,6 +682,8 @@ export default function VotersPage() {
     fd.append("status", String(vals.status || "ACTIVE"));
     if (selectedPhoto) fd.append("profile_picture", selectedPhoto);
     if (removePhoto) fd.append("remove_profile_picture", "1");
+    if (selectedHousePhoto) fd.append("house_picture", selectedHousePhoto);
+    if (removeHousePhoto) fd.append("remove_house_picture", "1");
     try {
       setSubmitting(true);
       if (editing?.recipient_id) {
@@ -844,6 +995,8 @@ export default function VotersPage() {
               const barangayLabel = getBarangayLabel(r);
               const purokLabel = getPurokLabel(r);
               const qrValue = voterQrValue(r, barangayLabel, purokLabel);
+              const housePhoto = houseImageUrl(r);
+              const residenceMapUrl = voterMapUrl(r?.latitude, r?.longitude);
               const household = households[r.recipient_id];
               const householdLoaded = !!loadedHouseholds[r.recipient_id];
               return (
@@ -925,13 +1078,42 @@ export default function VotersPage() {
                             )}
                           </section>
                         </div>
-                        <aside className="voter-record-qr" aria-label={`Downloadable QR for ${fullName(r)}`}>
+                        <aside className="voter-record-sidecar">
+                          <section className="voter-record-house-photo" aria-label={`House photo for ${fullName(r)}`}>
+                            <div className="voter-record-sidecar-heading"><HomeOutlined /><span>Registered residence</span></div>
+                            {housePhoto ? (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img src={housePhoto} alt={`House of ${fullName(r)}`} />
+                            ) : (
+                              <div className="voter-record-house-photo__empty"><HomeOutlined /><span>No house photo recorded</span></div>
+                            )}
+                          </section>
+                          <section className="voter-record-location" aria-label={`Residence location for ${fullName(r)}`}>
+                            <div className="voter-record-sidecar-heading"><EnvironmentOutlined /><span>Residence location</span></div>
+                            {residenceMapUrl ? (
+                              <>
+                                <dl>
+                                  <div><dt>Latitude</dt><dd>{formatCoordinate(r?.latitude)}</dd></div>
+                                  <div><dt>Longitude</dt><dd>{formatCoordinate(r?.longitude)}</dd></div>
+                                </dl>
+                                <p>
+                                  {r?.location_accuracy_meters ? `GPS accuracy ${formatLocationAccuracy(r.location_accuracy_meters)}` : "Coordinates entered manually"}
+                                  {r?.location_captured_at ? ` · ${fmtDateTime(r.location_captured_at)}` : ""}
+                                </p>
+                                <Button block icon={<EnvironmentOutlined />} href={residenceMapUrl} target="_blank" rel="noopener noreferrer">View on map</Button>
+                              </>
+                            ) : (
+                              <div className="voter-record-location__empty"><EnvironmentOutlined /><span>No residence location recorded</span></div>
+                            )}
+                          </section>
+                          <section className="voter-record-qr" aria-label={`Downloadable QR for ${fullName(r)}`}>
                           <div className="voter-record-qr-heading"><QrcodeOutlined /><span>Registry QR</span></div>
                           <div className="voter-record-qr-code">
                             <QRCode id={`voter-qr-${r.recipient_id}`} value={qrValue} size={112} level="M" bgColor="#ffffff" fgColor="#071f3c" />
                           </div>
                           <p>Record #{String(r.recipient_id).padStart(6, "0")} · Precinct {precinct}</p>
                           <Button block icon={<DownloadOutlined />} onClick={() => downloadVoterQr(r)}>Download QR</Button>
+                          </section>
                         </aside>
                       </div>
                     </section>
@@ -1042,29 +1224,120 @@ export default function VotersPage() {
               <Form.Item label="Religion" name="religion"><Select showSearch options={religionOptions} optionFilterProp="label" /></Form.Item>
               <Form.Item label="Tribe" name="tribe_id"><Select allowClear showSearch options={tribeOptions} optionFilterProp="label" /></Form.Item>
               <Form.Item label="Sex" name="sex"><Select allowClear options={[{ value: "MALE", label: "Male" }, { value: "FEMALE", label: "Female" }]} /></Form.Item>
-              <Form.Item label="Status" name="status" initialValue="ACTIVE"><Select options={[{ value: "ACTIVE", label: "Active" }, { value: "INACTIVE", label: "Inactive" }]} /></Form.Item>
+              <Form.Item label="Status" name="status" initialValue="ACTIVE"><Select options={[{ value: "ACTIVE", label: "KAPAMILYA" }, { value: "INACTIVE", label: "NON KAPAMILYA" }]} /></Form.Item>
+            </div>
+          </section>
+
+          <section className="voter-form-section">
+            <div className="voter-form-section__heading">
+              <div>
+                <strong>Residence location</strong>
+                <span>Capture the voter&apos;s house position or enter coordinates manually</span>
+              </div>
+            </div>
+            <div className="voter-form-location-card">
+              <div className="voter-form-location-toolbar">
+                <div>
+                  <EnvironmentOutlined />
+                  <div><strong>House coordinates</strong><span>For best accuracy, capture this while at the residence using a phone.</span></div>
+                </div>
+                <div className="voter-form-location-actions">
+                  <Button type="primary" icon={<EnvironmentOutlined />} loading={locating} onClick={captureCurrentLocation}>Get current location</Button>
+                  <Button disabled={!hasCoordinateInput(formLatitude) && !hasCoordinateInput(formLongitude) && !locating} onClick={clearResidenceLocation}>Clear</Button>
+                </div>
+              </div>
+              <div className="voter-form-grid voter-form-grid--two voter-form-location-inputs">
+                <Form.Item
+                  label="Latitude"
+                  name="latitude"
+                  dependencies={["longitude"]}
+                  rules={[
+                    { type: "number", min: -90, max: 90, message: "Latitude must be between -90 and 90." },
+                    ({ getFieldValue }) => ({
+                      validator(_, value) {
+                        if (hasCoordinateInput(value) === hasCoordinateInput(getFieldValue("longitude"))) return Promise.resolve();
+                        return Promise.reject(new Error("Enter both latitude and longitude."));
+                      },
+                    }),
+                  ]}
+                >
+                  <InputNumber controls={false} precision={7} step={0.0000001} placeholder="e.g. 7.4475000" onChange={clearLocationMetadata} />
+                </Form.Item>
+                <Form.Item
+                  label="Longitude"
+                  name="longitude"
+                  dependencies={["latitude"]}
+                  rules={[
+                    { type: "number", min: -180, max: 180, message: "Longitude must be between -180 and 180." },
+                    ({ getFieldValue }) => ({
+                      validator(_, value) {
+                        if (hasCoordinateInput(value) === hasCoordinateInput(getFieldValue("latitude"))) return Promise.resolve();
+                        return Promise.reject(new Error("Enter both latitude and longitude."));
+                      },
+                    }),
+                  ]}
+                >
+                  <InputNumber controls={false} precision={7} step={0.0000001} placeholder="e.g. 124.6733000" onChange={clearLocationMetadata} />
+                </Form.Item>
+              </div>
+              <div className="voter-form-location-meta">
+                <span>{locationMeta.capturedAt ? `Captured ${fmtDateTime(locationMeta.capturedAt)}` : "Coordinates may also be entered manually."}</span>
+                {coordinateValue(locationMeta.accuracy) !== null ? <strong>GPS accuracy {formatLocationAccuracy(locationMeta.accuracy)}</strong> : null}
+              </div>
+              <p className="voter-form-location-privacy">Exact coordinates are kept in the authorized voter record and are not included in the QR code.</p>
             </div>
           </section>
 
           <section className="voter-form-section voter-form-section--picture">
             <div className="voter-form-section__heading">
               <div>
-                <strong>Voter picture</strong>
-                <span>Add a clear identification photo</span>
+                <strong>Registry images</strong>
+                <span>Add clear identification and residence photos</span>
               </div>
             </div>
-            <Form.Item>
-              <Upload accept="image/*" beforeUpload={onPhotoPick} onRemove={() => { clearPhoto(); return true; }} maxCount={1} fileList={selectedPhoto ? [selectedPhoto] : []}>
-                <Button icon={<UploadOutlined />}>Select Picture</Button>
-              </Upload>
-              {photoPreview ? (
-                <div className="mt-3 flex items-center gap-4">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={photoPreview} alt="Voter preview" className="w-28 h-28 rounded-full object-cover border border-slate-200" />
-                  <Button danger onClick={clearPhoto}>Remove Picture</Button>
+            <div className="voter-form-photo-grid">
+              <div className="voter-form-photo-card">
+                <div className="voter-form-photo-card__heading">
+                  <IdcardOutlined />
+                  <div><strong>Voter picture</strong><span>Clear face and identification photo</span></div>
                 </div>
-              ) : null}
-            </Form.Item>
+                <Form.Item>
+                  <Upload accept="image/*" beforeUpload={onPhotoPick} onRemove={() => { clearPhoto(); return true; }} maxCount={1} fileList={selectedPhoto ? [selectedPhoto] : []}>
+                    <Button block icon={<UploadOutlined />}>Select voter picture</Button>
+                  </Upload>
+                </Form.Item>
+                {photoPreview ? (
+                  <div className="voter-form-photo-preview voter-form-photo-preview--profile">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={photoPreview} alt="Voter preview" />
+                    <Button danger size="small" onClick={clearPhoto}>Remove voter picture</Button>
+                  </div>
+                ) : (
+                  <div className="voter-form-photo-empty voter-form-photo-empty--profile"><IdcardOutlined /><span>No voter picture selected</span></div>
+                )}
+              </div>
+
+              <div className="voter-form-photo-card">
+                <div className="voter-form-photo-card__heading">
+                  <HomeOutlined />
+                  <div><strong>House picture</strong><span>Front view of the voter&apos;s residence</span></div>
+                </div>
+                <Form.Item>
+                  <Upload accept="image/*" beforeUpload={onHousePhotoPick} onRemove={() => { clearHousePhoto(); return true; }} maxCount={1} fileList={selectedHousePhoto ? [selectedHousePhoto] : []}>
+                    <Button block icon={<UploadOutlined />}>Select house picture</Button>
+                  </Upload>
+                </Form.Item>
+                {housePhotoPreview ? (
+                  <div className="voter-form-photo-preview voter-form-photo-preview--house">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={housePhotoPreview} alt="House preview" />
+                    <Button danger size="small" onClick={clearHousePhoto}>Remove house picture</Button>
+                  </div>
+                ) : (
+                  <div className="voter-form-photo-empty voter-form-photo-empty--house"><HomeOutlined /><span>No house picture selected</span></div>
+                )}
+              </div>
+            </div>
           </section>
         </Form>
       </Modal>
