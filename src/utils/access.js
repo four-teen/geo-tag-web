@@ -40,8 +40,9 @@ const ROUTE_ROLE_ACCESS = {
   "/tribes": [USER_ROLES.ADMIN, USER_ROLES.STAFF, USER_ROLES.VOTER_EDITOR, USER_ROLES.MUNICIPAL_STAFF, USER_ROLES.VIEWER],
   "/voters": [USER_ROLES.ADMIN, USER_ROLES.STAFF, USER_ROLES.VOTER_EDITOR, USER_ROLES.MUNICIPAL_STAFF, USER_ROLES.VIEWER],
   "/recipients": [USER_ROLES.ADMIN, USER_ROLES.STAFF, USER_ROLES.VOTER_EDITOR, USER_ROLES.MUNICIPAL_STAFF, USER_ROLES.VIEWER],
-  "/voter-imports": [USER_ROLES.ADMIN, USER_ROLES.STAFF],
+  "/voter-imports": [USER_ROLES.ADMIN],
   "/account": [USER_ROLES.ADMIN],
+  "/activity-logs": [USER_ROLES.ADMIN],
 };
 
 export function getUserRole() {
@@ -171,6 +172,7 @@ export function clearSessionCookies() {
       headers: {
         Authorization: `Bearer ${token}`,
         "Content-Type": "application/json",
+        "X-Page-Path": window.location.pathname,
       },
       keepalive: true,
     }).catch(() => {});
