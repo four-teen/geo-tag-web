@@ -3,7 +3,7 @@ import {
   DashboardOutlined,
   EnvironmentOutlined,
   FileTextOutlined,
-  ImportOutlined,
+  HistoryOutlined,
   LogoutOutlined,
   ReadOutlined,
   TagsOutlined,
@@ -77,8 +77,7 @@ const baseMenu = [
       {
         label: "Voter Imports",
         key: "/voter-imports",
-        icon: <ImportOutlined />,
-        allowedRoles: [USER_ROLES.ADMIN, USER_ROLES.STAFF],
+        allowedRoles: [USER_ROLES.ADMIN],
       },
       {
         label: "Locations & Precincts",
@@ -116,6 +115,12 @@ const baseMenu = [
         label: "User Accounts",
         key: "/account",
         icon: <UserOutlined />,
+        allowedRoles: [USER_ROLES.ADMIN],
+      },
+      {
+        label: "Staff Activity Log",
+        key: "/activity-logs",
+        icon: <HistoryOutlined />,
         allowedRoles: [USER_ROLES.ADMIN],
       },
     ],

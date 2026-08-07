@@ -27,6 +27,7 @@ import {
   IdcardOutlined,
   PlusOutlined,
   QrcodeOutlined,
+  ReloadOutlined,
   SearchOutlined,
   TeamOutlined,
   UpOutlined,
@@ -46,6 +47,7 @@ import { GetReligions } from "../api/religion";
 import { GetTribes } from "../api/tribe";
 import { canDeleteActions, GEO_PERMISSIONS, hasAnyPermission } from "../../utils/access";
 import { extractApiErrorMessage, getApiBaseUrl } from "../../utils/api";
+import { logStaffAction } from "../../utils/activity";
 
 const PAGE_SIZE = 20;
 const MAX_PHOTO_BYTES = 2 * 1024 * 1024;
@@ -160,7 +162,8 @@ const voterMapUrl = (latitude, longitude) => {
   const lat = coordinateValue(latitude);
   const lng = coordinateValue(longitude);
   if (lat === null || lng === null) return "";
-  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${lat},${lng}`)}`;
+  const coordinateQuery = `${lat.toFixed(7)},${lng.toFixed(7)}`;
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(coordinateQuery)}`;
 };
 
 const sortToApi = (opt) => {
@@ -176,6 +179,7 @@ export default function VotersPage() {
   const formBarangayId = Form.useWatch("barangay_id", form);
   const formLatitude = Form.useWatch("latitude", form);
   const formLongitude = Form.useWatch("longitude", form);
+  const formResidenceMapUrl = voterMapUrl(formLatitude, formLongitude);
   const canManageGeo = hasAnyPermission([GEO_PERMISSIONS.MANAGE_GEO]);
   const canEditGeo = hasAnyPermission([GEO_PERMISSIONS.MANAGE_GEO, GEO_PERMISSIONS.EDIT_GEO]);
   const canDeleteGeo = canManageGeo && canDeleteActions();
@@ -204,6 +208,8 @@ export default function VotersPage() {
   const [totalCount, setTotalCount] = useState(0);
   const [page, setPage] = useState(0);
   const [hasMore, setHasMore] = useState(false);
+  const [registryResolved, setRegistryResolved] = useState(false);
+  const [registryLoadError, setRegistryLoadError] = useState("");
 
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState(null);
@@ -405,7 +411,14 @@ export default function VotersPage() {
       dir: sortApi.sort_dir,
     });
     queryRef.current = q;
-    append ? setLoadingMore(true) : setLoading(true);
+    if (append) {
+      setLoadingMore(true);
+    } else {
+      setLoading(true);
+      setLoadingMore(false);
+      setRegistryResolved(false);
+      setRegistryLoadError("");
+    }
     try {
       const res = await GetRecipients({
         page: nextPage,
@@ -430,17 +443,23 @@ export default function VotersPage() {
       setTotalCount(total);
       setPage(cp);
       setHasMore(cp < lp);
+      if (!append) setRegistryResolved(true);
     } catch (e) {
+      const message = extractApiErrorMessage(e, append ? "Failed to load more voter records." : "Failed to load the voter masterlist.");
       if (!append && q === queryRef.current) {
         setVoters([]);
         setFilteredCount(0);
         setTotalCount(0);
         setPage(0);
         setHasMore(false);
+        setRegistryResolved(false);
+        setRegistryLoadError(message);
       }
-      if (!unauthorized(e)) toast.error(extractApiErrorMessage(e, "Failed to load voters."));
+      if (!unauthorized(e)) toast.error(message);
     } finally {
-      append ? setLoadingMore(false) : setLoading(false);
+      if (q === queryRef.current) {
+        append ? setLoadingMore(false) : setLoading(false);
+      }
     }
   }, [debouncedSearch, precinctNo, selectedBarangayFilterId, selectedPurokFilterId, sortApi, unauthorized]);
 
@@ -498,9 +517,14 @@ export default function VotersPage() {
     setLocationMeta({ accuracy: null, capturedAt: null });
   };
 
-  const openCreate = () => { resetModal(); setModalOpen(true); };
+  const openCreate = () => {
+    resetModal();
+    setModalOpen(true);
+    logStaffAction("OPEN_CREATE_VOTER_FORM");
+  };
 
   const openEdit = async (r) => {
+    logStaffAction("OPEN_VOTER_EDIT", { entityId: r?.recipient_id });
     resetModal();
     setEditing(r);
     setPhotoPreview(imageUrl(r));
@@ -735,6 +759,9 @@ export default function VotersPage() {
   const toggleVoterDetails = async (record) => {
     const isOpening = !expanded[record.recipient_id];
     setExpanded((current) => ({ ...current, [record.recipient_id]: isOpening }));
+    if (isOpening) {
+      logStaffAction("VIEW_VOTER_DETAILS", { entityId: record.recipient_id });
+    }
     if (isOpening && !loadedHouseholds[record.recipient_id]) {
       await loadHousehold(record.recipient_id);
     }
@@ -752,6 +779,7 @@ export default function VotersPage() {
     setHouseholdMembers(members);
     setHouseholdCandidates([]);
     setHouseholdModalOpen(true);
+    logStaffAction("OPEN_HOUSEHOLD_MANAGER", { entityId: record.recipient_id });
   };
 
   const searchHouseholdVoters = async (value) => {
@@ -871,6 +899,7 @@ export default function VotersPage() {
       document.body.appendChild(link);
       link.click();
       link.remove();
+      logStaffAction("DOWNLOAD_VOTER_QR", { entityId: record.recipient_id });
     };
 
     qrImage.onerror = () => {
@@ -895,9 +924,15 @@ export default function VotersPage() {
           </div>
           <div className="voter-registry-hero-actions">
             <div className="voter-registry-count">
-              <span>Records displayed</span>
-              <strong>{filteredCount.toLocaleString()}</strong>
-              <small>of {totalCount.toLocaleString()} registered voters</small>
+              <span>{registryResolved ? "Matching records" : "Masterlist status"}</span>
+              <strong>{registryLoadError ? "Needs retry" : registryResolved ? filteredCount.toLocaleString() : "Loading..."}</strong>
+              <small>
+                {registryLoadError
+                  ? "The record count is not available yet"
+                  : registryResolved
+                    ? "of " + totalCount.toLocaleString() + " registered voters"
+                    : "Checking registered voter records"}
+              </small>
             </div>
             {canManageGeo ? (
               <Button className="voter-registry-add" type="primary" size="large" icon={<PlusOutlined />} onClick={openCreate}>Add voter</Button>
@@ -979,11 +1014,47 @@ export default function VotersPage() {
 
         <div className="voter-registry-results-heading">
           <div><AuditOutlined /><span>Masterlist records</span></div>
-          <p>{voters.length.toLocaleString()} loaded · {filteredCount.toLocaleString()} matching</p>
+          <p>
+            {registryLoadError
+              ? "Masterlist loading was interrupted"
+              : registryResolved
+                ? voters.length.toLocaleString() + " loaded · " + filteredCount.toLocaleString() + " matching"
+                : "Checking available voter records..."}
+          </p>
         </div>
 
-        {loading ? (
-          <div className="voter-registry-list">{Array.from({ length: 3 }).map((_, i) => <Card className="voter-record-skeleton" key={i}><Skeleton active avatar paragraph={{ rows: 3 }} /></Card>)}</div>
+        {registryLoadError && !loading ? (
+          <Card className="voter-registry-load-error">
+            <div>
+              <strong>We could not finish loading the voter masterlist.</strong>
+              <span>{registryLoadError}</span>
+              <small>No empty result is being shown because the record check did not finish.</small>
+            </div>
+            <Button type="primary" icon={<ReloadOutlined />} onClick={() => fetchPage(1, false)}>
+              Try loading again
+            </Button>
+          </Card>
+        ) : !ready || loading || !registryResolved ? (
+          <>
+            <Card className="voter-registry-initial-loading" role="status" aria-live="polite">
+              <div className="voter-registry-initial-loading__heading">
+                <Spin size="small" />
+                <div>
+                  <strong>Checking for voter records</strong>
+                  <span>Please wait while we confirm that masterlist records are available.</span>
+                </div>
+              </div>
+              <div className="voter-registry-indeterminate-progress" aria-hidden="true"><span /></div>
+              <p>Available records will appear immediately after this check finishes.</p>
+            </Card>
+            <div className="voter-registry-list">
+              {Array.from({ length: 3 }).map((_, i) => (
+                <Card className="voter-record-skeleton" key={i}>
+                  <Skeleton active avatar paragraph={{ rows: 3 }} />
+                </Card>
+              ))}
+            </div>
+          </>
         ) : voters.length === 0 ? (
           <Card className="voter-registry-empty"><Empty description="No voter records match the current filters." /></Card>
         ) : (
@@ -1100,7 +1171,16 @@ export default function VotersPage() {
                                   {r?.location_accuracy_meters ? `GPS accuracy ${formatLocationAccuracy(r.location_accuracy_meters)}` : "Coordinates entered manually"}
                                   {r?.location_captured_at ? ` · ${fmtDateTime(r.location_captured_at)}` : ""}
                                 </p>
-                                <Button block icon={<EnvironmentOutlined />} href={residenceMapUrl} target="_blank" rel="noopener noreferrer">View on map</Button>
+                                <Button
+                                  block
+                                  icon={<EnvironmentOutlined />}
+                                  href={residenceMapUrl}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  onClick={() => logStaffAction("OPEN_VOTER_MAP", { entityId: r.recipient_id })}
+                                >
+                                  View on map
+                                </Button>
                               </>
                             ) : (
                               <div className="voter-record-location__empty"><EnvironmentOutlined /><span>No residence location recorded</span></div>
@@ -1242,7 +1322,7 @@ export default function VotersPage() {
                   <div><strong>House coordinates</strong><span>For best accuracy, capture this while at the residence using a phone.</span></div>
                 </div>
                 <div className="voter-form-location-actions">
-                  <Button type="primary" icon={<EnvironmentOutlined />} loading={locating} onClick={captureCurrentLocation}>Get current location</Button>
+                  <Button className="voter-location-capture" type="primary" icon={<EnvironmentOutlined />} loading={locating} onClick={captureCurrentLocation}>Get current location</Button>
                   <Button disabled={!hasCoordinateInput(formLatitude) && !hasCoordinateInput(formLongitude) && !locating} onClick={clearResidenceLocation}>Clear</Button>
                 </div>
               </div>
@@ -1280,6 +1360,24 @@ export default function VotersPage() {
                   <InputNumber controls={false} precision={7} step={0.0000001} placeholder="e.g. 124.6733000" onChange={clearLocationMetadata} />
                 </Form.Item>
               </div>
+              {formResidenceMapUrl ? (
+                <div className="voter-form-location-map-action">
+                  <span className="voter-form-location-map-coordinates">
+                    {formatCoordinate(formLatitude)}, {formatCoordinate(formLongitude)}
+                  </span>
+                  <Button
+                    className="voter-location-map-button"
+                    icon={<EnvironmentOutlined />}
+                    href={formResidenceMapUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={() => logStaffAction("OPEN_FORM_COORDINATES_MAP", { entityId: editing?.recipient_id })}
+                    aria-label={`Show coordinates ${formatCoordinate(formLatitude)}, ${formatCoordinate(formLongitude)} in Google Maps`}
+                  >
+                    Show exact location on Google Maps
+                  </Button>
+                </div>
+              ) : null}
               <div className="voter-form-location-meta">
                 <span>{locationMeta.capturedAt ? `Captured ${fmtDateTime(locationMeta.capturedAt)}` : "Coordinates may also be entered manually."}</span>
                 {coordinateValue(locationMeta.accuracy) !== null ? <strong>GPS accuracy {formatLocationAccuracy(locationMeta.accuracy)}</strong> : null}

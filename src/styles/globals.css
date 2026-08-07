@@ -856,6 +856,10 @@
 }
 
 @media print {
+  .purok-report-group--print-hidden {
+    display: none !important;
+  }
+
   .purok-report-group {
     break-inside: auto;
     page-break-inside: auto;
@@ -869,6 +873,15 @@
   .purok-voter-records {
     border-color: #94a3b8;
     border-radius: 0;
+    break-inside: auto;
+    page-break-inside: auto;
+  }
+
+  .purok-voter-records thead {
+    display: table-header-group;
+  }
+
+  .purok-voter-records tr {
     break-inside: avoid;
     page-break-inside: avoid;
   }
@@ -2788,6 +2801,102 @@ table, th, td {
   font-size: 0.75rem;
 }
 
+.voter-registry-initial-loading__heading > div,
+.voter-registry-load-error .ant-card-body > div {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 0.18rem;
+}
+
+.voter-registry-initial-loading__heading strong,
+.voter-registry-load-error strong {
+  color: var(--registry-navy-dark);
+  font-size: 0.86rem;
+  font-weight: 800;
+}
+
+.voter-registry-initial-loading__heading span,
+.voter-registry-load-error span {
+  color: var(--registry-muted);
+  font-size: 0.75rem;
+  line-height: 1.45;
+}
+
+.voter-registry-initial-loading {
+  overflow: hidden;
+  border: 1px solid #b9d1e5;
+  border-radius: 13px;
+  background: linear-gradient(135deg, #f5f9fd 0%, #ffffff 75%);
+  box-shadow: 0 5px 18px rgba(11, 49, 93, 0.06);
+}
+
+.voter-registry-initial-loading__heading {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.voter-registry-indeterminate-progress {
+  position: relative;
+  overflow: hidden;
+  height: 9px;
+  margin-top: 1rem;
+  border-radius: 999px;
+  background: #dfe8f1;
+}
+
+.voter-registry-indeterminate-progress span {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: -38%;
+  width: 38%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #245b86, #0f766e);
+  animation: voter-masterlist-loading 1.25s ease-in-out infinite;
+}
+
+.voter-registry-initial-loading p {
+  margin: 0.7rem 0 0;
+  color: #64748b;
+  font-size: 0.72rem;
+}
+
+@keyframes voter-masterlist-loading {
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(365%);
+  }
+}
+
+.voter-registry-load-error {
+  border: 1px solid #fecaca;
+  border-radius: 13px;
+  background: #fff8f8;
+}
+
+.voter-registry-load-error .ant-card-body {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.voter-registry-load-error small {
+  color: #9f1239;
+  font-size: 0.7rem;
+}
+
+.voter-registry-load-error .ant-btn-primary {
+  flex: 0 0 auto;
+  border-color: #0f5f57;
+  background: #0f5f57;
+  font-weight: 700;
+}
+
 .voter-registry-list {
   display: grid;
   gap: 0.75rem;
@@ -3015,8 +3124,8 @@ table, th, td {
 
 .voter-record-details-content {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 210px;
-  gap: 1.25rem;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1rem;
   align-items: start;
 }
 
@@ -3035,11 +3144,17 @@ table, th, td {
 
 .voter-record-sidecar {
   display: grid;
-  gap: 0.8rem;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1rem;
+  align-items: stretch;
 }
 
 .voter-record-house-photo,
 .voter-record-location {
+  display: flex;
+  min-width: 0;
+  height: 100%;
+  flex-direction: column;
   overflow: hidden;
   padding: 0.7rem;
   border: 1px solid #cbd8e5;
@@ -3063,6 +3178,8 @@ table, th, td {
 .voter-record-house-photo > img {
   display: block;
   width: 100%;
+  min-height: 150px;
+  flex: 1;
   aspect-ratio: 16 / 10;
   border-radius: 7px;
   object-fit: cover;
@@ -3071,7 +3188,8 @@ table, th, td {
 
 .voter-record-house-photo__empty {
   display: flex;
-  min-height: 112px;
+  min-height: 150px;
+  flex: 1;
   align-items: center;
   justify-content: center;
   flex-direction: column;
@@ -3098,11 +3216,11 @@ table, th, td {
 }
 
 .voter-record-location dl > div {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 0.6rem;
-  padding-bottom: 0.35rem;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: start;
+  gap: 0.18rem;
+  padding-bottom: 0.45rem;
   border-bottom: 1px solid #e7edf3;
 }
 
@@ -3112,11 +3230,15 @@ table, th, td {
 }
 
 .voter-record-location dd {
+  overflow-wrap: normal;
   margin: 0;
   color: #173957;
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-  font-size: 0.64rem;
+  font-size: 0.72rem;
   font-weight: 700;
+  line-height: 1.4;
+  white-space: nowrap;
+  word-break: normal;
 }
 
 .voter-record-location > p {
@@ -3127,6 +3249,7 @@ table, th, td {
 }
 
 .voter-record-location .ant-btn {
+  margin-top: auto;
   border-color: #b8c7d7;
   border-radius: 7px;
   color: var(--registry-navy);
@@ -3157,6 +3280,8 @@ table, th, td {
 
 .voter-record-qr {
   display: grid;
+  min-width: 0;
+  height: 100%;
   justify-items: center;
   padding: 0.8rem;
   border: 1px solid #cbd8e5;
@@ -3694,7 +3819,7 @@ table, th, td {
   font-size: 0.77rem;
 }
 
-.voter-form-location-toolbar span {
+.voter-form-location-toolbar > div:first-child span {
   color: #728397;
   font-size: 0.66rem;
   line-height: 1.4;
@@ -3705,17 +3830,74 @@ table, th, td {
   gap: 0.5rem;
 }
 
-.voter-form-location-actions .ant-btn-primary {
-  background: #0b714d;
+.voter-form-location-actions .voter-location-capture.ant-btn-primary {
+  border-color: #0f5f57;
+  color: #ffffff !important;
+  background: #0f5f57;
+  box-shadow: 0 3px 10px rgba(15, 95, 87, 0.2);
+  font-weight: 700;
 }
 
-.voter-form-location-actions .ant-btn-primary:hover,
-.voter-form-location-actions .ant-btn-primary:focus {
-  background: #085a3e;
+.voter-form-location-actions .voter-location-capture.ant-btn-primary:not(:disabled):hover,
+.voter-form-location-actions .voter-location-capture.ant-btn-primary:not(:disabled):focus {
+  border-color: #0b4b45;
+  color: #ffffff !important;
+  background: #0b4b45;
+}
+
+.voter-form-location-actions .voter-location-capture.ant-btn-primary:focus-visible {
+  outline: 3px solid rgba(15, 95, 87, 0.28);
+  outline-offset: 2px;
+}
+
+.voter-form-location-actions .voter-location-capture.ant-btn-primary > span,
+.voter-form-location-actions .voter-location-capture.ant-btn-primary .anticon {
+  color: #ffffff !important;
 }
 
 .voter-form-location-inputs .ant-form-item {
   margin-bottom: 0.55rem;
+}
+
+.voter-form-location-map-action {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  margin: 0.1rem 0 0.65rem;
+}
+
+.voter-form-location-map-coordinates {
+  color: #526579;
+  font-size: 0.68rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.voter-form-location-map-action .voter-location-map-button.ant-btn {
+  min-height: 38px;
+  border-color: #0f766e;
+  color: #0f5f57 !important;
+  background: #ecfdf5;
+  font-weight: 700;
+}
+
+.voter-form-location-map-action .voter-location-map-button.ant-btn > span,
+.voter-form-location-map-action .voter-location-map-button.ant-btn .anticon {
+  color: #0f5f57 !important;
+}
+
+.voter-form-location-map-action .voter-location-map-button.ant-btn:hover,
+.voter-form-location-map-action .voter-location-map-button.ant-btn:focus {
+  border-color: #0f5f57;
+  color: #ffffff !important;
+  background: #0f5f57;
+}
+
+.voter-form-location-map-action .voter-location-map-button.ant-btn:hover > span,
+.voter-form-location-map-action .voter-location-map-button.ant-btn:hover .anticon,
+.voter-form-location-map-action .voter-location-map-button.ant-btn:focus > span,
+.voter-form-location-map-action .voter-location-map-button.ant-btn:focus .anticon {
+  color: #ffffff !important;
 }
 
 .voter-form-location-meta {
@@ -3917,6 +4099,15 @@ table, th, td {
   .voter-form-location-actions .ant-btn:first-child {
     flex: 1;
   }
+
+  .voter-form-location-map-action .ant-btn {
+    width: 100%;
+  }
+
+  .voter-form-location-map-action {
+    align-items: stretch;
+    flex-direction: column;
+  }
 }
 
 .voter-record-skeleton,
@@ -4004,6 +4195,16 @@ table, th, td {
   }
 }
 
+@media (max-width: 720px) {
+  .voter-record-sidecar {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .voter-record-qr {
+    grid-column: 1 / -1;
+  }
+}
+
 @media (max-width: 560px) {
   .voter-registry-page {
     padding: 0.75rem;
@@ -4033,6 +4234,15 @@ table, th, td {
 
   .voter-registry-count,
   .voter-registry-add.ant-btn-primary {
+    width: 100%;
+  }
+
+  .voter-registry-load-error .ant-card-body {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .voter-registry-load-error .ant-btn {
     width: 100%;
   }
 
@@ -4067,7 +4277,12 @@ table, th, td {
     grid-template-columns: minmax(0, 1fr);
   }
 
+  .voter-record-sidecar {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
   .voter-record-qr {
+    grid-column: auto;
     justify-self: stretch;
   }
 
@@ -4285,6 +4500,133 @@ table, th, td {
     border-top: 4px solid #b4232d;
     border-radius: 0;
     box-shadow: none;
+  }
+}
+
+.activity-log-filter-card,
+.activity-log-table-card {
+  min-width: 0;
+}
+
+.activity-log-filter-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 1rem;
+  margin-top: 1.25rem;
+}
+
+.activity-log-filter-grid label {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.activity-log-filter-grid label > span:first-child {
+  color: #475569;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.activity-log-filter-grid .ant-picker,
+.activity-log-filter-grid .ant-select,
+.activity-log-filter-grid .ant-input-affix-wrapper {
+  width: 100%;
+}
+
+.activity-log-filter-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid #e2e8f0;
+}
+
+.activity-log-filter-actions .ant-btn-primary {
+  background: #0f5f57;
+  border-color: #0f5f57;
+}
+
+.activity-log-filter-actions .ant-btn-primary:hover {
+  background: #0b4b45 !important;
+  border-color: #0b4b45 !important;
+}
+
+.activity-log-table-card .ant-table-wrapper {
+  margin-top: 1rem;
+}
+
+.activity-log-table-card .ant-table-thead > tr > th {
+  background: #f1f5f9;
+  color: #334155;
+  font-size: 0.75rem;
+  letter-spacing: 0.035em;
+  text-transform: uppercase;
+}
+
+.activity-log-time,
+.activity-log-person,
+.activity-log-page-name,
+.activity-log-action,
+.activity-log-result {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 0.18rem;
+}
+
+.activity-log-time strong,
+.activity-log-person strong,
+.activity-log-page-name strong,
+.activity-log-action strong,
+.activity-log-result strong {
+  color: #0f2742;
+  font-size: 0.82rem;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.activity-log-time span,
+.activity-log-person span,
+.activity-log-page-name span,
+.activity-log-action span,
+.activity-log-result span {
+  color: #64748b;
+  font-size: 0.72rem;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.activity-log-time strong {
+  white-space: nowrap;
+}
+
+.activity-log-result .ant-tag {
+  align-self: flex-start;
+  margin-inline-end: 0;
+}
+
+@media (max-width: 1180px) {
+  .activity-log-filter-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  .activity-log-filter-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .activity-log-filter-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .activity-log-filter-actions .ant-btn {
+    width: 100%;
   }
 }
 

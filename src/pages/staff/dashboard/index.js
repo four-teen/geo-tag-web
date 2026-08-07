@@ -1,16 +1,18 @@
 import Head from "next/head";
-import dynamic from "next/dynamic";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/router";
 import {
   ApartmentOutlined,
+  ArrowRightOutlined,
+  CheckCircleOutlined,
   EnvironmentOutlined,
   IdcardOutlined,
   ReadOutlined,
   TagsOutlined,
   TeamOutlined,
+  WarningOutlined,
 } from "@ant-design/icons";
-import { Card, Empty, Progress, Skeleton } from "antd";
+import { Button, Card, Empty, Progress, Skeleton } from "antd";
 import { toast } from "react-toastify";
 import Cookies from "js-cookie";
 import Layout from "../../layouts";
@@ -19,18 +21,25 @@ import { GetVoterInsights } from "../../api/dashboard";
 import { extractApiErrorMessage } from "../../../utils/api";
 import { isVoterEditor } from "../../../utils/access";
 
-const ApexChart = dynamic(() => import("react-apexcharts"), { ssr: false });
-
 const numberFormatter = new Intl.NumberFormat("en-PH");
-
-const pct = (value) => `${Number(value || 0).toFixed(1)}%`;
-const whole = (value) => numberFormatter.format(Number(value || 0));
+const whole = (value) => numberFormatter.format(Math.max(0, Number(value || 0)));
+const clamp = (value) => Math.max(0, Math.min(100, Number(value || 0)));
+const coverage = (value, total) => (
+  Number(total || 0) > 0 ? clamp((Number(value || 0) / Number(total)) * 100) : 0
+);
+const pct = (value) => clamp(value).toFixed(1) + "%";
 
 export default function StaffDashboard() {
   const router = useRouter();
-  const editorMode = isVoterEditor();
   const [loading, setLoading] = useState(true);
   const [insights, setInsights] = useState(null);
+  const [sessionDetails, setSessionDetails] = useState({
+    editorMode: false,
+    accountName: "Staff",
+    designation: "Staff account",
+    scopeLabel: "All barangays",
+  });
+  const { editorMode, accountName, designation, scopeLabel } = sessionDetails;
 
   const unauthorized = useCallback((error) => {
     if (error?.response?.status === 401) {
@@ -40,6 +49,17 @@ export default function StaffDashboard() {
     }
     return false;
   }, [router]);
+
+  useEffect(() => {
+    const voterEditor = isVoterEditor();
+
+    setSessionDetails({
+      editorMode: voterEditor,
+      accountName: Cookies.get("username") || (voterEditor ? "Voter Records Editor" : "Staff"),
+      designation: Cookies.get("designation") || (voterEditor ? "Records editor" : "Staff account"),
+      scopeLabel: Cookies.get("barangay_scope") === "SPECIFIC" ? "Assigned barangays" : "All barangays",
+    });
+  }, []);
 
   useEffect(() => {
     let mounted = true;
@@ -55,9 +75,8 @@ export default function StaffDashboard() {
 
       try {
         setLoading(true);
-        const res = await GetVoterInsights();
-        if (!mounted) return;
-        setInsights(res?.data || null);
+        const response = await GetVoterInsights();
+        if (mounted) setInsights(response?.data || null);
       } catch (error) {
         if (!mounted) return;
         setInsights(null);
@@ -76,117 +95,97 @@ export default function StaffDashboard() {
   }, [router, unauthorized]);
 
   const snapshot = insights?.snapshot || {};
-  const topProfessions = Array.isArray(insights?.top_professions) ? insights.top_professions.slice(0, 4) : [];
-  const topBarangays = Array.isArray(insights?.top_barangays) ? insights.top_barangays.slice(0, 6) : [];
-  const topReligions = Array.isArray(insights?.top_religions) ? insights.top_religions.slice(0, 6) : [];
-  const topTribes = Array.isArray(insights?.top_tribes) ? insights.top_tribes.slice(0, 6) : [];
-  const chartData = useMemo(() => (
-    insights?.evaluation_chart || { categories: [], series: [] }
-  ), [insights]);
+  const totalVoters = Number(snapshot.total_voters || 0);
+  const assignedBarangay = Number(snapshot.assigned_barangay || 0);
+  const assignedPurok = Number(snapshot.assigned_purok || 0);
+  const occupationTagged = Number(snapshot.occupation_tagged || 0);
+  const withoutBarangay = Math.max(0, totalVoters - assignedBarangay);
+  const withoutPurok = Math.max(0, totalVoters - assignedPurok);
+  const withoutOccupation = Math.max(0, totalVoters - occupationTagged);
+  const barangayCoverage = coverage(assignedBarangay, totalVoters);
+  const purokCoverage = coverage(assignedPurok, totalVoters);
+  const occupationCoverage = coverage(occupationTagged, totalVoters);
+  const overallCompletion = (barangayCoverage + purokCoverage + occupationCoverage) / 3;
+  const topBarangays = useMemo(
+    () => (Array.isArray(insights?.top_barangays) ? insights.top_barangays.slice(0, 6) : []),
+    [insights]
+  );
 
-  const compactCards = [
+  const kpis = [
     {
-      label: "Total Voters",
-      value: whole(snapshot.total_voters),
-      note: "Masterlist rows",
+      label: "Masterlist records",
+      value: whole(totalVoters),
+      description: scopeLabel + " in your working scope",
       icon: <TeamOutlined />,
+      iconClass: "bg-blue-50 text-blue-700",
+      detail: "Masterlist",
     },
     {
-      label: "Occupation Coverage",
-      value: pct(snapshot.occupation_coverage),
-      note: "Tagged profession entries",
-      icon: <IdcardOutlined />,
-    },
-    {
-      label: "Barangay Tagged",
-      value: whole(snapshot.assigned_barangay),
-      note: "Assigned voters",
+      label: "Needs barangay",
+      value: whole(withoutBarangay),
+      description: "Records requiring a primary location",
       icon: <EnvironmentOutlined />,
+      iconClass: "bg-amber-50 text-amber-700",
+      detail: "Review",
     },
     {
-      label: "Purok Tagged",
-      value: whole(snapshot.assigned_purok),
-      note: "Assigned voters",
+      label: "Needs purok",
+      value: whole(withoutPurok),
+      description: "Records requiring a precise location",
       icon: <ApartmentOutlined />,
+      iconClass: "bg-cyan-50 text-cyan-700",
+      detail: "Review",
+    },
+    {
+      label: "Needs occupation",
+      value: whole(withoutOccupation),
+      description: "Records with incomplete work details",
+      icon: <IdcardOutlined />,
+      iconClass: "bg-violet-50 text-violet-700",
+      detail: "Review",
     },
   ];
 
-  const chartOptions = useMemo(() => ({
-    chart: {
-      type: "line",
-      toolbar: { show: false },
-      zoom: { enabled: false },
-      redrawOnParentResize: true,
-      redrawOnWindowResize: true,
-      fontFamily: "ui-sans-serif, system-ui, sans-serif",
+  const completionItems = [
+    { label: "Barangay assignment", complete: assignedBarangay, percent: barangayCoverage, color: "#0f766e" },
+    { label: "Purok assignment", complete: assignedPurok, percent: purokCoverage, color: "#2563eb" },
+    { label: "Occupation recorded", complete: occupationTagged, percent: occupationCoverage, color: "#7c3aed" },
+  ];
+
+  const reviewItems = [
+    { label: "No barangay assignment", value: withoutBarangay, description: "Add the voter's primary location", tone: "bg-amber-50 text-amber-700" },
+    { label: "No purok assignment", value: withoutPurok, description: "Complete the voter's precise location", tone: "bg-blue-50 text-blue-700" },
+    { label: "Occupation not recorded", value: withoutOccupation, description: "Complete the voter's work details", tone: "bg-violet-50 text-violet-700" },
+  ];
+
+  const quickActions = [
+    {
+      title: "Voter Masterlist",
+      description: editorMode
+        ? "Search and update existing voter and household records."
+        : "Add, search, edit, and manage voter and household records.",
+      path: "/voters",
+      icon: <TeamOutlined />,
     },
-    colors: ["#0f172a", "#ea580c", "#0891b2", "#16a34a"],
-    stroke: {
-      curve: "smooth",
-      width: [4, 4, 3, 3],
+    {
+      title: "Locations & Precincts",
+      description: "Maintain barangay, purok, and precinct reference data.",
+      path: "/barangays",
+      icon: <EnvironmentOutlined />,
     },
-    grid: {
-      borderColor: "#e2e8f0",
-      strokeDashArray: 4,
+    {
+      title: "Tribes",
+      description: "Maintain tribe values used by voter records.",
+      path: "/tribes",
+      icon: <TagsOutlined />,
     },
-    markers: {
-      size: 4,
-      hover: { size: 6 },
+    {
+      title: "Religions",
+      description: "Maintain religion values used by voter records.",
+      path: "/religions",
+      icon: <ReadOutlined />,
     },
-    legend: {
-      position: "top",
-      horizontalAlign: "left",
-      fontSize: "12px",
-    },
-    dataLabels: { enabled: false },
-    xaxis: {
-      categories: Array.isArray(chartData?.categories) ? chartData.categories : [],
-      labels: {
-        style: {
-          colors: "#64748b",
-          fontSize: "12px",
-        },
-      },
-      axisBorder: { show: false },
-      axisTicks: { show: false },
-    },
-    yaxis: {
-      labels: {
-        formatter: (value) => whole(Math.round(value)),
-        style: {
-          colors: "#64748b",
-          fontSize: "12px",
-        },
-      },
-    },
-    tooltip: {
-      theme: "light",
-      y: {
-        formatter: (value) => `${whole(value)} voters`,
-      },
-    },
-    responsive: [
-      {
-        breakpoint: 640,
-        options: {
-          legend: { position: 'bottom', horizontalAlign: 'center', fontSize: '11px' },
-          stroke: { width: [2, 2, 2, 2] },
-          markers: { size: 2, hover: { size: 4 } },
-          xaxis: {
-            labels: {
-              rotate: -40,
-              hideOverlappingLabels: true,
-              trim: true,
-              style: { colors: '#64748b', fontSize: '10px' },
-            },
-          },
-          yaxis: {
-            labels: { style: { colors: '#64748b', fontSize: '10px' } },
-          },
-        },
-      },
-    ],
-  }), [chartData]);
+  ];
 
   return (
     <Layout>
@@ -194,249 +193,187 @@ export default function StaffDashboard() {
         <title>{editorMode ? "Voter Records Dashboard" : "Staff Dashboard"}</title>
       </Head>
 
-      <main className="p-4 sm:p-6 space-y-6">
-        <section className="rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm">
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-            <div>
-              <p className="text-sm uppercase tracking-[0.3em] text-slate-400">{editorMode ? "Records Overview" : "Staff Overview"}</p>
-              <h1 className="mt-1 text-3xl font-semibold text-slate-900">{editorMode ? "Voter Records Dashboard" : "Staff Dashboard"}</h1>
-              <p className="mt-2 max-w-2xl text-sm text-slate-500">
-                Minimal view of the voter masterlist focused on coverage, evaluation trends, and the highest-pressure barangays.
-              </p>
-            </div>
-            <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
-              <p className="text-xs uppercase tracking-[0.22em] text-slate-400">Lead Profession</p>
-              <p className="mt-2 text-2xl font-semibold text-slate-900">{snapshot.leading_profession?.label || "No profession data"}</p>
-              <p className="mt-1 text-sm text-slate-500">{whole(snapshot.leading_profession?.total)} voters</p>
-            </div>
+      <main className="dashboard-page">
+        <header className="dashboard-header">
+          <div>
+            <p className="dashboard-eyebrow">{editorMode ? "Records workspace" : "Staff operations"}</p>
+            <h1>{editorMode ? "Voter records workspace" : "Staff masterlist workspace"}</h1>
+            <p className="dashboard-description">
+              {accountName} · {designation}. Manage voter records, resolve incomplete information, and maintain accurate location data within {scopeLabel.toLowerCase()}.
+            </p>
           </div>
-        </section>
+          <div className="dashboard-live-badge">
+            <span className="dashboard-live-dot" />
+            {scopeLabel} · {pct(overallCompletion)} complete
+          </div>
+        </header>
 
         {loading ? (
           <div className="space-y-4">
-            <Card><Skeleton active paragraph={{ rows: 4 }} /></Card>
-            <Card><Skeleton active paragraph={{ rows: 8 }} /></Card>
+            <Card><Skeleton active paragraph={{ rows: 5 }} /></Card>
+            <Card><Skeleton active paragraph={{ rows: 9 }} /></Card>
           </div>
         ) : !insights ? (
-          <Card className="rounded-[28px]">
-            <Empty description="No voter analytics available yet." />
+          <Card className="dashboard-card">
+            <Empty description="No staff dashboard data is available yet." />
           </Card>
         ) : (
           <>
-            <section className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-              {compactCards.map((card) => (
-                <Card key={card.label} className="rounded-[24px] border-0 shadow-sm">
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <p className="text-xs uppercase tracking-[0.24em] text-slate-400">{card.label}</p>
-                      <p className="mt-3 text-3xl font-semibold text-slate-900">{card.value}</p>
-                      <p className="mt-1 text-sm text-slate-500">{card.note}</p>
-                    </div>
-                    <div className="rounded-2xl bg-slate-100 p-3 text-lg text-slate-700">{card.icon}</div>
+            <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4" aria-label="Staff voter workload">
+              {kpis.map((item) => (
+                <article key={item.label} className="dashboard-kpi">
+                  <div className="flex items-start justify-between gap-4">
+                    <div className={"dashboard-kpi-icon " + item.iconClass}>{item.icon}</div>
+                    <span className="dashboard-kpi-detail">{item.detail}</span>
                   </div>
-                </Card>
+                  <p className="dashboard-kpi-label">{item.label}</p>
+                  <p className="dashboard-kpi-value">{item.value}</p>
+                  <p className="dashboard-kpi-description">{item.description}</p>
+                </article>
               ))}
             </section>
 
-            <section>
-              <Card className="rounded-[30px] border-0 shadow-sm">
-                <div className="space-y-5">
-                  <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
-                    <div>
-                      <p className="text-sm uppercase tracking-[0.3em] text-slate-400">Evaluation Graph</p>
-                      <h2 className="mt-1 text-2xl font-semibold text-slate-800">Smooth multi-line view of voter quality</h2>
-                    </div>
-                    <p className="max-w-sm text-sm text-slate-500">
-                      A compact trend view comparing total voters with occupation and location completeness.
-                    </p>
+            <section className="grid grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1.35fr)_minmax(340px,0.65fr)]">
+              <article className="dashboard-card">
+                <div className="dashboard-section-heading">
+                  <div>
+                    <p className="dashboard-section-kicker">Staff data work</p>
+                    <h2>Masterlist completion</h2>
+                    <p>Track the record fields staff should complete during daily masterlist management.</p>
                   </div>
+                  <CheckCircleOutlined className="dashboard-heading-icon" />
+                </div>
 
-                  {Array.isArray(chartData?.series) && chartData.series.length > 0 ? (
-                    <div className='dashboard-chart'>
-                      <ApexChart
-                        width='100%'
-                      type="line"
-                      height={380}
-                      options={chartOptions}
-                      series={chartData.series}
+                <div className="dashboard-coverage-list">
+                  {completionItems.map((item) => (
+                    <div key={item.label} className="dashboard-coverage-item">
+                      <div className="dashboard-coverage-copy">
+                        <div>
+                          <h3>{item.label}</h3>
+                          <p>{whole(item.complete)} of {whole(totalVoters)} voter records</p>
+                        </div>
+                        <strong>{pct(item.percent)}</strong>
+                      </div>
+                      <Progress
+                        percent={clamp(item.percent)}
+                        showInfo={false}
+                        strokeColor={item.color}
+                        trailColor="#e7efed"
+                        strokeWidth={10}
                       />
                     </div>
-                  ) : (
-                    <Empty description="No evaluation chart data available." />
-                  )}
+                  ))}
                 </div>
-              </Card>
-            </section>
 
-            <section className="grid grid-cols-1 gap-6 xl:grid-cols-2">
-              <Card className="rounded-[30px] border-0 shadow-sm">
-                <div className="space-y-4">
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <p className="text-sm uppercase tracking-[0.3em] text-slate-400">Religion Analytics</p>
-                      <h3 className="mt-1 text-xl font-semibold text-slate-800">Religion distribution</h3>
-                    </div>
-                    <div className="rounded-2xl bg-slate-100 p-3 text-lg text-slate-700"><ReadOutlined /></div>
-                  </div>
-
-                  {topReligions.length > 0 ? (
-                    <div className="space-y-4">
-                      {topReligions.map((item, index) => (
-                        <div key={item.label} className="space-y-2">
-                          <div className="flex items-center justify-between gap-3">
-                            <div>
-                              <p className="text-xs uppercase tracking-[0.22em] text-slate-400">Rank {index + 1}</p>
-                              <p className="mt-1 text-sm font-semibold text-slate-800">{item.label}</p>
-                            </div>
-                            <div className="text-right">
-                              <p className="text-sm font-semibold text-slate-800">{whole(item.total)}</p>
-                              <p className="text-xs text-slate-400">{pct(item.share)}</p>
-                            </div>
-                          </div>
-                          <Progress
-                            percent={Math.max(0, Math.min(100, Number(item.share || 0)))}
-                            showInfo={false}
-                            strokeColor="#2563eb"
-                            trailColor="#dbeafe"
-                          />
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <Empty description="No religion analytics available." />
-                  )}
+                <div className="dashboard-coverage-note">
+                  <TeamOutlined />
+                  <p>
+                    Staff uses the same Voter Masterlist management workspace as the administrator, limited to the account&apos;s assigned scope and access settings.
+                  </p>
                 </div>
-              </Card>
+              </article>
 
-              <Card className="rounded-[30px] border-0 shadow-sm">
-                <div className="space-y-4">
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <p className="text-sm uppercase tracking-[0.3em] text-slate-400">Tribe Analytics</p>
-                      <h3 className="mt-1 text-xl font-semibold text-slate-800">Tribe distribution</h3>
-                    </div>
-                    <div className="rounded-2xl bg-slate-100 p-3 text-lg text-slate-700"><TagsOutlined /></div>
-                  </div>
-
-                  {topTribes.length > 0 ? (
-                    <div className="space-y-4">
-                      {topTribes.map((item, index) => (
-                        <div key={item.label} className="space-y-2">
-                          <div className="flex items-center justify-between gap-3">
-                            <div>
-                              <p className="text-xs uppercase tracking-[0.22em] text-slate-400">Rank {index + 1}</p>
-                              <p className="mt-1 text-sm font-semibold text-slate-800">{item.label}</p>
-                            </div>
-                            <div className="text-right">
-                              <p className="text-sm font-semibold text-slate-800">{whole(item.total)}</p>
-                              <p className="text-xs text-slate-400">{pct(item.share)}</p>
-                            </div>
-                          </div>
-                          <Progress
-                            percent={Math.max(0, Math.min(100, Number(item.share || 0)))}
-                            showInfo={false}
-                            strokeColor="#7c3aed"
-                            trailColor="#ede9fe"
-                          />
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <Empty description="No tribe analytics available." />
-                  )}
-                </div>
-              </Card>
-            </section>
-
-            <section className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(300px,0.8fr)_minmax(0,1.2fr)]">
-              <Card className="rounded-[30px] border-0 shadow-sm">
-                <div className="space-y-4">
+              <article className="dashboard-card">
+                <div className="dashboard-section-heading">
                   <div>
-                    <p className="text-sm uppercase tracking-[0.3em] text-slate-400">Profession Snapshot</p>
-                    <h3 className="mt-1 text-xl font-semibold text-slate-800">Most common occupations</h3>
+                    <p className="dashboard-section-kicker dashboard-section-kicker--warning">Action queue</p>
+                    <h2>Records requiring attention</h2>
                   </div>
-
-                  {topProfessions.length > 0 ? (
-                    <div className="space-y-4">
-                      {topProfessions.map((item, index) => (
-                        <div key={item.label} className="space-y-2">
-                          <div className="flex items-center justify-between gap-3">
-                            <div>
-                              <p className="text-xs uppercase tracking-[0.22em] text-slate-400">Rank {index + 1}</p>
-                              <p className="mt-1 text-sm font-semibold text-slate-800">{item.label}</p>
-                            </div>
-                            <div className="text-right">
-                              <p className="text-sm font-semibold text-slate-800">{whole(item.total)}</p>
-                              <p className="text-xs text-slate-400">{pct(item.share)}</p>
-                            </div>
-                          </div>
-                          <Progress
-                            percent={Math.max(0, Math.min(100, Number(item.share || 0)))}
-                            showInfo={false}
-                            strokeColor="#0f766e"
-                            trailColor="#e2e8f0"
-                          />
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <Empty description="No profession snapshot available." />
-                  )}
+                  <WarningOutlined className="dashboard-heading-icon dashboard-heading-icon--warning" />
                 </div>
-              </Card>
 
-              <Card className="rounded-[30px] border-0 shadow-sm">
-                <div className="space-y-5">
-                  <div className="flex flex-col gap-2 lg:flex-row lg:items-end lg:justify-between">
-                    <div>
-                      <p className="text-sm uppercase tracking-[0.3em] text-slate-400">Location Pressure</p>
-                      <h3 className="mt-1 text-xl font-semibold text-slate-800">Highest-volume barangays</h3>
+                <div className="dashboard-review-list">
+                  {reviewItems.map((item) => (
+                    <div key={item.label} className="dashboard-review-item">
+                      <div className={"dashboard-review-count " + item.tone}>{whole(item.value)}</div>
+                      <div>
+                        <h3>{item.label}</h3>
+                        <p>{item.description}</p>
+                      </div>
                     </div>
-                    <p className="max-w-md text-sm text-slate-500">
-                      Minimalist ranking of the barangays carrying the heaviest voter load right now.
-                    </p>
-                  </div>
-
-                  {topBarangays.length > 0 ? (
-                    <div className="space-y-4">
-                      {topBarangays.map((item, index) => (
-                        <div key={item.label} className="rounded-2xl bg-slate-50 p-4">
-                          <div className="flex items-center justify-between gap-3">
-                            <div>
-                              <p className="text-xs uppercase tracking-[0.22em] text-slate-400">Rank {index + 1}</p>
-                              <p className="mt-1 text-base font-semibold uppercase tracking-[0.04em] text-slate-900">
-                                {item.label}
-                              </p>
-                            </div>
-                            <div className="text-right">
-                              <p className="text-xl font-semibold text-slate-900">{whole(item.total)}</p>
-                              <p className="text-xs text-slate-400">{pct(item.share)}</p>
-                            </div>
-                          </div>
-                          <div className="mt-3">
-                            <Progress
-                              percent={Math.max(0, Math.min(100, Number(item.share || 0)))}
-                              showInfo={false}
-                              strokeColor={{
-                                "0%": "#0f766e",
-                                "100%": "#0ea5e9",
-                              }}
-                              trailColor="#dbeafe"
-                            />
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <Empty description="No location pressure data available." />
-                  )}
+                  ))}
                 </div>
-              </Card>
+
+                <Button className="mt-4" block type="primary" icon={<TeamOutlined />} onClick={() => router.push("/voters")}>
+                  Open Voter Masterlist
+                </Button>
+              </article>
+            </section>
+
+            <section className="dashboard-card">
+              <div className="dashboard-section-heading dashboard-section-heading--directory">
+                <div>
+                  <p className="dashboard-section-kicker">Staff tools</p>
+                  <h2>Quick access</h2>
+                  <p>Open the staff management areas used for voter and reference-data work.</p>
+                </div>
+                <ArrowRightOutlined className="dashboard-heading-icon" />
+              </div>
+
+              <div className="dashboard-directory-grid">
+                {quickActions.map((action) => (
+                  <button
+                    type="button"
+                    key={action.title}
+                    className="dashboard-directory-item w-full cursor-pointer text-left"
+                    onClick={() => router.push(action.path)}
+                  >
+                    <span className="dashboard-directory-icon" aria-hidden="true">{action.icon}</span>
+                    <span className="dashboard-directory-copy">
+                      <span className="dashboard-directory-title"><h3>{action.title}</h3></span>
+                      <p>{action.description}</p>
+                    </span>
+                    <span className="dashboard-directory-count" aria-hidden="true">
+                      <ArrowRightOutlined />
+                      <span>Open</span>
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </section>
+
+            <section className="dashboard-card dashboard-barangay-directory">
+              <div className="dashboard-section-heading dashboard-section-heading--directory">
+                <div>
+                  <p className="dashboard-section-kicker">Scoped workload</p>
+                  <h2>Highest-volume barangays</h2>
+                  <p>See where the largest groups of voter records are concentrated in the staff account&apos;s working scope.</p>
+                </div>
+                <EnvironmentOutlined className="dashboard-heading-icon" />
+              </div>
+
+              <div className="dashboard-directory-summary">
+                <span><strong>{whole(topBarangays.length)}</strong> listed</span>
+                <span className="dashboard-directory-summary--covered">
+                  <strong>{whole(totalVoters)}</strong> total voters
+                </span>
+              </div>
+
+              {topBarangays.length > 0 ? (
+                <div className="dashboard-directory-grid">
+                  {topBarangays.map((item) => (
+                    <article key={item.barangay_id || item.label} className="dashboard-directory-item">
+                      <div className="dashboard-directory-icon" aria-hidden="true"><EnvironmentOutlined /></div>
+                      <div className="dashboard-directory-copy">
+                        <div className="dashboard-directory-title"><h3>{item.label || "Unnamed barangay"}</h3></div>
+                        <p>{pct(item.share)} of scoped masterlist</p>
+                      </div>
+                      <div className="dashboard-directory-count">
+                        <strong>{whole(item.total)}</strong>
+                        <span>{Number(item.total || 0) === 1 ? "voter" : "voters"}</span>
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              ) : (
+                <div className="dashboard-directory-empty">
+                  <Empty description="No barangay workload data is available." />
+                </div>
+              )}
             </section>
           </>
         )}
       </main>
-
     </Layout>
   );
 }

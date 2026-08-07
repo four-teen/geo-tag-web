@@ -1,5 +1,6 @@
 import Head from 'next/head';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { flushSync } from 'react-dom';
 import { useRouter } from 'next/router';
 import {
   BarChartOutlined,
@@ -37,103 +38,6 @@ const generatedLabel = (value) => {
 };
 
 const asText = (value, fallback = '-') => String(value || '').trim() || fallback;
-const escapePrintHtml = (value, fallback = '-') => asText(value, fallback).replace(/[&<>"']/g, (character) => ({
-  '&': '&amp;',
-  '<': '&lt;',
-  '>': '&gt;',
-  '"': '&quot;',
-  "'": '&#39;',
-}[character]));
-const buildPurokPrintDocument = ({ groups, barangayName, statusLabel, generatedAt }) => {
-  const pages = groups.map((group, groupIndex) => {
-    const voters = Array.isArray(group?.voters) ? group.voters : [];
-    const rows = voters.map((voter, voterIndex) => [
-      '<tr>',
-      '<td class="cell-number">' + (voterIndex + 1) + '</td>',
-      '<td>' + escapePrintHtml(voter?.full_name, 'No name') + '</td>',
-      '<td>' + escapePrintHtml(voter?.voters_id_number, 'No voter ID') + '</td>',
-      '<td>' + escapePrintHtml(voter?.sex, '-') + '</td>',
-      '<td>' + escapePrintHtml(voter?.precinct_no, 'Unassigned') + '</td>',
-      '<td>' + escapePrintHtml(voter?.status, 'INACTIVE') + '</td>',
-      '</tr>',
-    ].join('')).join('');
-
-    return [
-      '<section class="purok-print-page' + (groupIndex > 0 ? ' purok-print-page--next' : '') + '">',
-      '<header class="document-header">',
-      '<p class="document-kicker">Administrator Reporting Center</p>',
-      '<h1>Purok Voter Masterlist</h1>',
-      '<div class="document-subtitle">Voter record listing</div>',
-      '</header>',
-      '<section class="document-meta">',
-      '<div><span>Barangay</span><strong>' + escapePrintHtml(barangayName, 'Unassigned') + '</strong></div>',
-      '<div><span>Status filter</span><strong>' + escapePrintHtml(statusLabel, 'All voter statuses') + '</strong></div>',
-      '<div><span>Generated</span><strong>' + escapePrintHtml(generatedAt, 'Not generated') + '</strong></div>',
-      '</section>',
-      '<section class="purok-heading">',
-      '<div><p>Purok / Sitio</p><h2>' + escapePrintHtml(group?.purok_name, 'Unassigned') + '</h2></div>',
-      '<dl class="document-summary">',
-      '<div><dt>Total voters</dt><dd>' + whole(group?.total_voters) + '</dd></div>',
-      '<div><dt>Active</dt><dd>' + whole(group?.active_voters) + '</dd></div>',
-      '<div><dt>Inactive</dt><dd>' + whole(group?.inactive_voters) + '</dd></div>',
-      '</dl>',
-      '</section>',
-      '<table><thead><tr><th>No.</th><th>Voter name</th><th>Voter ID</th><th>Sex</th><th>Precinct</th><th>Status</th></tr></thead>',
-      '<tbody>' + rows + '</tbody></table>',
-      '<footer class="signature-row">',
-      '<div><span>Prepared by</span><strong class="signature-line"></strong></div>',
-      '<div><span>Verified by</span><strong class="signature-line"></strong></div>',
-      '</footer>',
-      '</section>',
-    ].join('');
-  }).join('');
-
-  return [
-    '<!doctype html>',
-    '<html lang="en"><head><meta charset="utf-8" />',
-    '<title>Purok Voter Masterlist</title>',
-    '<style>',
-    '@page { size: A4 portrait; margin: 13mm 12mm 16mm; }',
-    '* { box-sizing: border-box; }',
-    'html, body { margin: 0; padding: 0; color: #111827; background: #fff; font-family: Arial, Helvetica, sans-serif; }',
-    'body { font-size: 9pt; }',
-    '.purok-print-page { min-height: 268mm; }',
-    '.purok-print-page--next { break-before: page; page-break-before: always; }',
-    '.document-header { border-bottom: 2px solid #0f766e; padding-bottom: 4mm; text-align: center; }',
-    '.document-kicker { margin: 0 0 1.5mm; color: #0f766e; font-size: 8pt; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; }',
-    'h1 { margin: 0; color: #0f172a; font-size: 17pt; line-height: 1.1; }',
-    '.document-subtitle { margin-top: 1.5mm; color: #475569; font-size: 8.5pt; }',
-    '.document-meta { display: grid; grid-template-columns: 1.35fr 1.35fr 1fr; gap: 3mm; margin: 5mm 0 4mm; padding: 3mm 0; border-top: 1px solid #cbd5e1; border-bottom: 1px solid #cbd5e1; }',
-    '.document-meta div, .document-summary div { display: grid; gap: 0.8mm; }',
-    '.document-meta span, .document-summary dt { color: #64748b; font-size: 7pt; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; }',
-    '.document-meta strong { color: #0f172a; font-size: 9pt; }',
-    '.purok-heading { display: flex; align-items: flex-end; justify-content: space-between; gap: 5mm; margin: 0 0 3mm; }',
-    '.purok-heading p { margin: 0 0 1mm; color: #0f766e; font-size: 7pt; font-weight: 700; letter-spacing: 0.09em; text-transform: uppercase; }',
-    'h2 { margin: 0; color: #0f172a; font-size: 12pt; }',
-    '.document-summary { display: grid; grid-template-columns: repeat(3, minmax(18mm, 1fr)); gap: 2mm; margin: 0; }',
-    '.document-summary div { padding: 1.6mm 2mm; border: 1px solid #cbd5e1; text-align: center; }',
-    '.document-summary dd { margin: 0; color: #0f172a; font-size: 10pt; font-weight: 700; }',
-    'table { width: 100%; border-collapse: collapse; table-layout: fixed; }',
-    'thead { display: table-header-group; }',
-    'th, td { padding: 2.1mm 1.8mm; border: 1px solid #94a3b8; font-size: 8pt; text-align: left; vertical-align: top; word-break: break-word; }',
-    'th { color: #0f172a; background: #f1f5f9; font-size: 7pt; letter-spacing: 0.04em; text-transform: uppercase; }',
-    'tr { break-inside: avoid; page-break-inside: avoid; }',
-    'th:nth-child(1), td:nth-child(1) { width: 7%; text-align: center; }',
-    'th:nth-child(2), td:nth-child(2) { width: 33%; }',
-    'th:nth-child(3), td:nth-child(3) { width: 20%; }',
-    'th:nth-child(4), td:nth-child(4) { width: 10%; }',
-    'th:nth-child(5), td:nth-child(5) { width: 14%; }',
-    'th:nth-child(6), td:nth-child(6) { width: 16%; }',
-    '.cell-number { font-weight: 700; }',
-    '.signature-row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20mm; margin-top: 13mm; }',
-    '.signature-row div { display: grid; gap: 2mm; }',
-    '.signature-row span { color: #475569; font-size: 8pt; }',
-    '.signature-line { height: 6mm; border-bottom: 1px solid #0f172a; }',
-    '</style></head><body>',
-    pages,
-    '</body></html>',
-  ].join('');
-};
 const reportGroupKey = (group) => `${Number(group?.barangay_id || 0)}:${group?.barangay_name || ''}`;
 const fileSafeName = (value) => String(value || 'barangay')
   .normalize('NFKD')
@@ -170,12 +74,15 @@ export default function ReportsPage() {
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [purokReport, setPurokReport] = useState(null);
   const [purokLoading, setPurokLoading] = useState(false);
+  const [purokPrintScope, setPurokPrintScope] = useState(null);
+  const [exportingPuroks, setExportingPuroks] = useState(false);
   const progressTimerRef = useRef(null);
   const viewProgressTimerRef = useRef(null);
   const viewCompletionTimerRef = useRef(null);
   const requestSequenceRef = useRef(0);
   const groupRequestSequenceRef = useRef({});
   const viewSequenceRef = useRef(0);
+  const printTitleRef = useRef(null);
 
   const clearProgressTimer = useCallback(() => {
     if (progressTimerRef.current) {
@@ -476,6 +383,11 @@ export default function ReportsPage() {
     setPrinting(false);
     setPrintBarangayData(null);
     setPrintingBarangayKey(null);
+    setPurokPrintScope(null);
+    if (printTitleRef.current !== null) {
+      document.title = printTitleRef.current;
+      printTitleRef.current = null;
+    }
   }, []);
 
   useEffect(() => {
@@ -687,6 +599,56 @@ export default function ReportsPage() {
     }
   };
 
+  const exportPurokWorkbook = async () => {
+    if (displayedPurokGroups.length === 0) {
+      toast.error('No Purok voter records are available to export.');
+      return;
+    }
+
+    setExportingPuroks(true);
+    try {
+      const XLSX = await import('xlsx');
+      const workbook = XLSX.utils.book_new();
+      const barangayName = purokReport?.barangay?.barangay_name || scopeLabel;
+      const generatedAt = generatedLabel(purokReport?.generated_at);
+      const summaryRows = displayedPurokGroups.map((group) => ({
+        Barangay: barangayName,
+        'Purok / Sitio': asText(group.purok_name, 'Unassigned'),
+        'Status Filter': statusLabel,
+        'Total Voters': Number(group.total_voters || 0),
+        Active: Number(group.active_voters || 0),
+        Inactive: Number(group.inactive_voters || 0),
+        'Generated At': generatedAt,
+      }));
+      const voterRows = displayedPurokGroups.flatMap((group) => (
+        (Array.isArray(group.voters) ? group.voters : []).map((voter, index) => ({
+          No: index + 1,
+          Barangay: barangayName,
+          'Purok / Sitio': asText(group.purok_name, 'Unassigned'),
+          'Voter Name': asText(voter.full_name, 'No name'),
+          'Voter ID': asText(voter.voters_id_number, 'No voter ID'),
+          Sex: asText(voter.sex),
+          Precinct: asText(voter.precinct_no, 'Unassigned'),
+          Status: asText(voter.status, 'INACTIVE'),
+        }))
+      ));
+      const summarySheet = XLSX.utils.json_to_sheet(summaryRows);
+      const voterSheet = XLSX.utils.json_to_sheet(voterRows);
+      summarySheet['!cols'] = [24, 28, 24, 14, 12, 12, 26].map((wch) => ({ wch }));
+      voterSheet['!cols'] = [7, 24, 28, 36, 20, 10, 16, 12].map((wch) => ({ wch }));
+      XLSX.utils.book_append_sheet(workbook, summarySheet, 'Purok Summary');
+      XLSX.utils.book_append_sheet(workbook, voterSheet, 'Voter Records');
+      XLSX.writeFile(
+        workbook,
+        `purok-voter-report-${fileSafeName(barangayName)}-${new Date().toISOString().slice(0, 10)}.xlsx`
+      );
+    } catch (error) {
+      toast.error('Unable to export the Purok voter report.');
+    } finally {
+      setExportingPuroks(false);
+    }
+  };
+
   const printSummary = () => {
     setPrinting(true);
     window.setTimeout(() => {
@@ -721,31 +683,28 @@ export default function ReportsPage() {
       return;
     }
 
-    const printWindow = window.open('', '_blank', 'popup=yes,width=900,height=1100');
-    if (!printWindow) {
-      toast.error('Allow pop-ups to print the Purok voter report.');
-      return;
+    try {
+      flushSync(() => {
+        setPurokPrintScope(purok ? Number(purok.purok_id || 0) : ALL_PUROKS_VALUE);
+      });
+      printTitleRef.current = document.title;
+      document.title = `Purok Voter Masterlist - ${purokReport?.barangay?.barangay_name || scopeLabel}`;
+      window.print();
+    } catch (error) {
+      finishPrinting();
+      toast.error('Unable to open the print dialog for the Purok voter report.');
     }
-
-    printWindow.document.open();
-    printWindow.document.write(buildPurokPrintDocument({
-      groups,
-      barangayName: purokReport?.barangay?.barangay_name,
-      statusLabel,
-      generatedAt: generatedLabel(purokReport?.generated_at),
-    }));
-    printWindow.document.close();
-    printWindow.onafterprint = () => printWindow.close();
-    window.setTimeout(() => {
-      printWindow.focus();
-      printWindow.print();
-    }, 200);
   };
 
   return (
     <Layout>
-      <Head><title>Administrator Reports</title></Head>
-      <main className='report-page'>
+      <Head>
+        <title>Administrator Reports</title>
+        {purokPrintScope !== null ? (
+          <style media='print'>{'@page { size: A4 portrait; margin: 13mm 12mm 16mm; }'}</style>
+        ) : null}
+      </Head>
+      <main className={`report-page${purokPrintScope !== null ? ' report-page--purok-printing' : ''}`}>
         <section className='report-hero'>
           <div className='report-hero-copy'>
             <div className='report-hero-icon'><FileTextOutlined /></div>
@@ -757,7 +716,10 @@ export default function ReportsPage() {
           </div>
           <div className='report-actions report-no-print'>
             {view === 'purok' ? (
-              <Button type='primary' icon={<PrinterOutlined />} onClick={() => printPurokReport(null)} disabled={purokLoading || displayedPurokGroups.length === 0}>Print All Puroks</Button>
+              <>
+                <Button type='primary' icon={<PrinterOutlined />} onClick={() => printPurokReport(null)} disabled={purokLoading || displayedPurokGroups.length === 0}>Print All Puroks</Button>
+                <Button icon={<DownloadOutlined />} loading={exportingPuroks} onClick={exportPurokWorkbook} disabled={purokLoading || displayedPurokGroups.length === 0}>Export Excel</Button>
+              </>
             ) : (
               <>
                 <Button icon={<PrinterOutlined />} onClick={printSummary} disabled={!report || view !== 'summary'}>Print summary</Button>
@@ -957,7 +919,16 @@ export default function ReportsPage() {
                 </div>
               </div>
               {displayedPurokGroups.length > 0 ? displayedPurokGroups.map((group) => (
-                <Card className='report-barangay-group purok-report-group' key={group.purok_id}>
+                <Card
+                  className={`report-barangay-group purok-report-group${
+                    purokPrintScope !== null
+                      && purokPrintScope !== ALL_PUROKS_VALUE
+                      && Number(purokPrintScope) !== Number(group.purok_id || 0)
+                      ? ' purok-report-group--print-hidden'
+                      : ''
+                  }`}
+                  key={group.purok_id}
+                >
                   <div className='report-group-heading'>
                     <div>
                       <span>Purok / Sitio</span>
