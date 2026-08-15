@@ -49,6 +49,11 @@ export function getUserRole() {
   return Cookies.get("role") || USER_ROLES.STAFF;
 }
 
+export function isPasswordChangeRequired() {
+  const value = String(Cookies.get("must_change_password") || "").trim().toLowerCase();
+  return value === "1" || value === "true" || value === "yes";
+}
+
 export function getRoleLabel(role = "") {
   const normalized = String(role || "").trim();
 

@@ -25,6 +25,7 @@ import {
   FilterOutlined,
   HomeOutlined,
   IdcardOutlined,
+  MessageOutlined,
   PlusOutlined,
   QrcodeOutlined,
   ReloadOutlined,
@@ -42,7 +43,7 @@ import { Auth } from "../api/auth";
 import { GetBarangays } from "../api/barangay";
 import { GetPuroksByBarangay } from "../api/purok";
 import { GetPrecinctsByPurok } from "../api/precinct";
-import { GetRecipients, postRecipient, updateRecipient, deleteRecipient, getVoterHousehold, updateVoterHousehold } from "../api/recipients";
+import { GetRecipients, postRecipient, updateRecipient, deleteRecipient, getVoterHousehold, updateVoterHousehold, sendVoterSms } from "../api/recipients";
 import { GetReligions } from "../api/religion";
 import { GetTribes } from "../api/tribe";
 import { canDeleteActions, GEO_PERMISSIONS, hasAnyPermission } from "../../utils/access";
@@ -52,6 +53,7 @@ import { logStaffAction } from "../../utils/activity";
 const PAGE_SIZE = 20;
 const MAX_PHOTO_BYTES = 2 * 1024 * 1024;
 const NONE_OPTION_VALUE = "__NONE__";
+const SMS_ENABLED = false;
 const BLANK_OPTION = { value: NONE_OPTION_VALUE, label: "Blank" };
 const HOUSEHOLD_RELATIONSHIPS = [
   "Spouse / Partner",
@@ -176,6 +178,7 @@ const sortToApi = (opt) => {
 export default function VotersPage() {
   const router = useRouter();
   const [form] = Form.useForm();
+  const [smsForm] = Form.useForm();
   const formBarangayId = Form.useWatch("barangay_id", form);
   const formLatitude = Form.useWatch("latitude", form);
   const formLongitude = Form.useWatch("longitude", form);
@@ -189,6 +192,7 @@ export default function VotersPage() {
   const [loadingMore, setLoadingMore] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [deletingId, setDeletingId] = useState(0);
+  const [sendingSms, setSendingSms] = useState(false);
 
   const [voters, setVoters] = useState([]);
   const [barangays, setBarangays] = useState([]);
@@ -213,6 +217,8 @@ export default function VotersPage() {
 
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState(null);
+  const [smsModalOpen, setSmsModalOpen] = useState(false);
+  const [smsVoter, setSmsVoter] = useState(null);
   const [selectedPhoto, setSelectedPhoto] = useState(null);
   const [photoPreview, setPhotoPreview] = useState("");
   const [removePhoto, setRemovePhoto] = useState(false);
@@ -727,6 +733,41 @@ export default function VotersPage() {
     }
   };
 
+  const openSmsComposer = (record) => {
+    if (!String(record?.phone_number || "").trim()) {
+      toast.warning("Add a phone number to this voter before sending an SMS.");
+      return;
+    }
+
+    setSmsVoter(record);
+    smsForm.resetFields();
+    setSmsModalOpen(true);
+  };
+
+  const closeSmsComposer = () => {
+    if (sendingSms) return;
+    setSmsModalOpen(false);
+    setSmsVoter(null);
+    smsForm.resetFields();
+  };
+
+  const submitSms = async ({ message }) => {
+    if (!smsVoter?.recipient_id) return;
+
+    try {
+      setSendingSms(true);
+      await sendVoterSms(smsVoter.recipient_id, String(message || "").trim());
+      toast.success(`SMS sent to ${fullName(smsVoter)}.`);
+      setSmsModalOpen(false);
+      setSmsVoter(null);
+      smsForm.resetFields();
+    } catch (error) {
+      if (!unauthorized(error)) toast.error(extractApiErrorMessage(error, "Sending SMS failed."));
+    } finally {
+      setSendingSms(false);
+    }
+  };
+
   const remove = async (id) => {
     try {
       setDeletingId(id);
@@ -1092,6 +1133,15 @@ export default function VotersPage() {
                     </div>
                     <div className="voter-record-actions">
                       <Button aria-expanded={open} icon={open ? <UpOutlined /> : <DownOutlined />} onClick={() => toggleVoterDetails(r)}>{open ? "Less details" : "View details"}</Button>
+                       <Button
+                         className="voter-record-sms-action"
+                         icon={<MessageOutlined />}
+                         disabled={!SMS_ENABLED || !canEditGeo || !String(r?.phone_number || "").trim()}
+                         title={!SMS_ENABLED ? "SMS service is temporarily unavailable." : (!String(r?.phone_number || "").trim() ? "This voter has no phone number." : "Send an individual SMS")}
+                         onClick={() => openSmsComposer(r)}
+                       >
+                         Send SMS
+                       </Button>
                        <Button icon={<EditOutlined />} disabled={!canEditGeo} onClick={() => openEdit(r)}>Edit</Button>
                        {canDeleteGeo ? (
                          <Popconfirm title="Delete this voter?" description="This action cannot be undone." onConfirm={() => remove(r.recipient_id)}>
@@ -1208,6 +1258,55 @@ export default function VotersPage() {
         {loadingMore ? <div className="voter-registry-loading"><Spin size="small" /><span>Loading more voter records...</span></div> : null}
         {!loading && voters.length > 0 && !hasMore ? <p className="voter-registry-end">End of registry results</p> : null}
       </main>
+
+      <Modal
+        title={(
+          <div className="voter-form-modal-title">
+            <span className="voter-form-modal-title__icon"><MessageOutlined /></span>
+            <div>
+              <strong>Send SMS</strong>
+              <span>Send an individual message to this voter</span>
+            </div>
+          </div>
+        )}
+        open={smsModalOpen}
+        width={560}
+        centered
+        className="voter-form-modal voter-sms-modal"
+        wrapClassName="voter-form-modal-wrap"
+        maskClosable={!sendingSms}
+        onCancel={closeSmsComposer}
+        onOk={() => smsForm.submit()}
+        okText="Send SMS"
+        okButtonProps={{ disabled: !canEditGeo || !smsVoter?.recipient_id, loading: sendingSms }}
+        cancelButtonProps={{ disabled: sendingSms }}
+      >
+        <div className="voter-sms-recipient">
+          <span>Recipient</span>
+          <strong>{fullName(smsVoter)}</strong>
+          <small>{displayValue(smsVoter?.phone_number)}</small>
+        </div>
+        <Form form={smsForm} layout="vertical" onFinish={submitSms} className="voter-sms-form">
+          <Form.Item
+            label="Message"
+            name="message"
+            rules={[
+              { required: true, whitespace: true, message: "Enter the SMS message." },
+              { max: 160, message: "The message cannot exceed 160 characters." },
+            ]}
+          >
+            <Input.TextArea
+              autoFocus
+              rows={6}
+              maxLength={160}
+              showCount
+              placeholder="Type the message to send..."
+              disabled={sendingSms}
+            />
+          </Form.Item>
+          <p>Review the recipient and message carefully. Selecting Send SMS immediately submits it to the SMS provider.</p>
+        </Form>
+      </Modal>
 
       <Modal
         title={(

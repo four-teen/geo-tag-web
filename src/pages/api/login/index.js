@@ -33,3 +33,21 @@ export async function logout() {
     }
   );
 }
+
+export async function changePassword(body) {
+  const token = Cookies.get("accessToken");
+  return axios.patch(
+    buildApiUrl("/admin/account/change-password"),
+    {
+      current_password: body.current_password,
+      password: body.password,
+      password_confirmation: body.password_confirmation,
+    },
+    {
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: "Bearer " + token,
+      },
+    }
+  );
+}

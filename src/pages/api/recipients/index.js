@@ -49,3 +49,9 @@ export async function updateVoterHousehold(id, members) {
     headers: authHeaders(),
   });
 }
+
+export async function sendVoterSms(id, message) {
+  return axios.post(buildApiUrl(`/bow/voters/${id}/sms`), { message }, {
+    headers: authHeaders(),
+  });
+}

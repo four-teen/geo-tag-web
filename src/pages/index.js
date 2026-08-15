@@ -40,13 +40,16 @@ export default function Home() {
       Cookies.set("role", res.data?.data?.role || "staff");
       Cookies.set("is_active", String(res.data?.data?.is_active ? 1 : 0));
       Cookies.set("can_delete", String(res.data?.data?.can_delete ? 1 : 0));
-      Cookies.set("must_change_password", "0");
+      const mustChangePassword = Boolean(res.data?.data?.must_change_password);
+      Cookies.set("must_change_password", String(mustChangePassword ? 1 : 0));
       Cookies.set("barangay_scope", res.data?.data?.barangay_scope || "ALL");
       Cookies.set("barangay_ids", JSON.stringify(res.data?.data?.barangay_ids || []));
       Cookies.set("tokenApiUrl", process.env.NEXT_PUBLIC_API_URL || "");
 
       toast.success("Login successful", { position: "top-center" });
-      await router.replace({ pathname: getDefaultLandingPath() });
+      await router.replace({
+        pathname: mustChangePassword ? "/change-password" : getDefaultLandingPath(),
+      });
     } catch (error) {
       toast.error("Login failed", { position: "top-center" });
     } finally {
