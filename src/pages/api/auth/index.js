@@ -1,5 +1,9 @@
 import Cookies from "js-cookie";
-import { canAccessRoute, getDefaultLandingPath } from "../../../utils/access";
+import {
+  canAccessRoute,
+  getDefaultLandingPath,
+  isPasswordChangeRequired,
+} from "../../../utils/access";
 
 
 
@@ -9,6 +13,14 @@ export async function Auth(route) {
 
   if (!token) {
     return route ? "/" : "";
+  }
+
+  if (isPasswordChangeRequired()) {
+    return route === "/change-password" ? route : "/change-password";
+  }
+
+  if (route === "/change-password") {
+    return defaultPath;
   }
 
   if (route && !canAccessRoute(route)) {

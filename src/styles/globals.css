@@ -3661,6 +3661,60 @@ table, th, td {
   border-color: #0d3a67;
   background: #0d3a67;
 }
+.voter-record-actions .voter-record-sms-action:not(:disabled) {
+  border-color: #2b6cb0;
+  color: #1e5c99;
+}
+
+.voter-record-actions .voter-record-sms-action:not(:disabled):hover {
+  border-color: #174f86;
+  color: #174f86;
+}
+
+.voter-sms-recipient {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  margin-bottom: 1rem;
+  padding: 0.85rem 1rem;
+  border: 1px solid #d6e1ec;
+  border-radius: 10px;
+  background: #f5f8fc;
+}
+
+.voter-sms-recipient span {
+  color: #64748b;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.voter-sms-recipient strong {
+  color: #10233d;
+  font-size: 1rem;
+}
+
+.voter-sms-recipient small {
+  color: #475569;
+  font-size: 0.8rem;
+}
+
+.voter-sms-form .ant-form-item {
+  margin-bottom: 0.8rem;
+}
+
+.voter-sms-form textarea.ant-input {
+  min-height: 132px;
+  resize: vertical;
+}
+
+.voter-sms-form > p {
+  margin: 0;
+  color: #64748b;
+  font-size: 0.74rem;
+  line-height: 1.55;
+}
 
 .voter-form {
   display: flex;
